@@ -4,4 +4,4 @@
 
 [submodule "src/etc/slugs"]
 	path = src/etc/slugs
-	url = git://github.com/VerifiableRobotics/slugs.git
+	url = https://github.com/awadell1/slugs.git
