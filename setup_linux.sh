@@ -2,6 +2,7 @@
 cwd=$(pwd)
 
 # Install Basic Requirements
+echo Root access requested to install dependancies
 sudo apt-get install default-jre
 sudo apt-get install default-jdk
 sudo apt-get install python-numpy
