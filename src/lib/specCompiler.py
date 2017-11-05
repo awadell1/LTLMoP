@@ -499,7 +499,7 @@ class SpecCompiler(object):
             # TODO: automatically compile for the user
             raise RuntimeError("Please compile the synthesis code first.  For instructions, see etc/slugs/README.md.")
 
-        cmd = [slugs_path, "--sysInitRoboticsSemantics", self.proj.getFilenamePrefix() + ".slugsin", self.proj.getFilenamePrefix() + ".aut"]
+        cmd = [slugs_path, "--explicitStrategy", self.proj.getFilenamePrefix() + ".slugsin", self.proj.getFilenamePrefix() + ".aut"]
 
         return cmd
 

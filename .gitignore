@@ -2,6 +2,7 @@
 *.pyc
 *.swp
 *.aut
+*.slugsin
 *.cfg
 *.ltl
 *.smv
@@ -25,3 +26,4 @@ src/lib/cores/picosat*
 .settings
 .ropeproject
 .idea
+.classpath
