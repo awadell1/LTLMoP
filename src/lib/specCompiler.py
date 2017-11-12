@@ -182,7 +182,7 @@ class SpecCompiler(object):
         self.LTL2SpecLineNumber = None
 
         #regionList = [r.name for r in self.parser.proj.rfi.regions]
-        regionList = [r.name for r in self.proj.rfi.regions]
+        regionList = self.proj.rfi.regionList()
         sensorList = deepcopy(self.proj.enabled_sensors)
         robotPropList = self.proj.enabled_actuators + self.proj.all_customs
 
@@ -245,12 +245,10 @@ class SpecCompiler(object):
 
             if self.proj.compile_options["decompose"]:
                 # substitute decomposed region names
-                for r in self.proj.rfi.regions:
-                    if not (r.isObstacle or r.isBoundary()):
-                        LTLspec_env = re.sub('\\bs\.' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "s."), LTLspec_env)
-                        LTLspec_env = re.sub('\\be\.' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "e."), LTLspec_env)
-                        LTLspec_sys = re.sub('\\bs\.' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "s."), LTLspec_sys)
-                        LTLspec_sys = re.sub('\\be\.' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "e."), LTLspec_sys)
+                LTLspec_env = self._subDecompedRegion(LTLspec_env, '\\bs\.')
+                LTLspec_env = self._subDecompedRegion(LTLspec_env, '\\bs\.')
+                LTLspec_sys = self._subDecompedRegion(LTLspec_sys, '\\bs\.')
+                LTLspec_sys = self._subDecompedRegion(LTLspec_sys, '\\bs\.')
 
             response = responses
 
@@ -277,10 +275,9 @@ class SpecCompiler(object):
 
             if self.proj.compile_options["decompose"]:
                 # substitute decomposed region
-                for r in self.proj.rfi.regions:
-                    if not (r.isObstacle or r.isBoundary()):
-                        LTLspec_env = re.sub('\\b(?:s\.)?' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "s."), LTLspec_env)
-                        LTLspec_sys = re.sub('\\b(?:s\.)?' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "s."), LTLspec_sys)
+                LTLspec_env = self._subDecompedRegion(LTLspec_env, '\\b(?:s\.)?')
+                LTLspec_sys = self._subDecompedRegion(LTLspec_sys, '\\b(?:s\.)?')
+                
             else:
                 for r in self.proj.rfi.regions:
                     if not (r.isObstacle or r.isBoundary()):
@@ -301,14 +298,13 @@ class SpecCompiler(object):
                     text=re.sub(r'between ' + m.group('rA')+' and '+ m.group('rB'),"("+' or '.join(["s."+r for r in self.parser.proj.regionMapping['between$'+m.group('rA')+'$and$'+m.group('rB')+"$"]])+")", text)
 
                 # substitute decomposed region
-                for r in self.proj.rfi.regions:
-                    if not (r.isObstacle or r.isBoundary()):
-                        text = re.sub('\\b' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "s."), text)
+                text = self._subDecompedRegion(text, '\\b')
 
                 regionList = self.parser.proj.rfi.regionList("s.")
             else:
                 for r in self.proj.rfi.regions:
                     if not (r.isObstacle or r.isBoundary()):
+                        # TODO Replace with call to mappedRegion?
                         text = re.sub('\\b' + r.name + '\\b', "s."+r.name, text)
 
                 regionList = self.proj.rfi.regionList("s.")
@@ -448,10 +444,8 @@ class SpecCompiler(object):
         # TODO: make everything use this
         if self.proj.compile_options["decompose"]:
             # substitute decomposed region names
-            for r in self.proj.rfi.regions:
-                if not (r.isObstacle or r.isBoundary()):
-                    text = re.sub('\\bs\.' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "s."), text)
-                    text = re.sub('\\be\.' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "e."), text)
+            text = self._subDecompedRegion(text, '\\bs\.')
+            text = self._subDecompedRegion(text, '\\be\.')
 
         # Get a list of region names
         regionList = self._getRegionList()
@@ -1007,3 +1001,17 @@ class SpecCompiler(object):
 
         return regionList
 
+    def _subDecompedRegion(self, fragment, prefix=""):
+        """
+        Replaces the names of regions with their decomposed versions
+        :param fragment: The Ltl fragment conatining region names to be replaced
+        :param prefix: Prepend name with prefix string when searching
+        :return: The ltl fragement with all of the regions replace with their decomposed versions
+        """
+        # substitute decomposed region names
+        for r in self.proj.rfi.regions:
+            # Only update region name if not an obstacle or the boundary region
+            if not (r.isObstacle or r.isBoundary()):
+                fragment = re.sub(prefix + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "s."), fragment)
+
+        return fragment
