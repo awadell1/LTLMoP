@@ -161,7 +161,7 @@ class Project:
     def writeSpecFile(self, filename=None):
         if filename is None:
             # Default to same filename as we loaded from
-            filename = os.path.join(self.project_root, self.project_basename + ".spec")
+            filename = self.getFilenamePrefix() + ".spec"
         else:
             # Update our project paths based on the new filename
             self.project_root = os.path.dirname(os.path.abspath(filename))
@@ -205,6 +205,14 @@ class Project:
 
         fileMethods.writeToFile(filename, data, comments)
 
+    def mappedRegion(self, regionName):
+        """
+        Returns an LTL fragment for the decomposed regions that are mapped to region
+        :param regionName: The name of the region that was decomposed (str)
+        :return: LTL Fragment that is true iff in the region
+        """
+
+        return "(" + ' | '.join(["s." + x for x in self.regionMapping[regionName]]) + ")"
 
     def loadProject(self, spec_file):
         """

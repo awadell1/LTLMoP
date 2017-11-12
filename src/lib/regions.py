@@ -456,6 +456,15 @@ class RegionFileInterface(object):
         self.filename = filename
 
         return True
+
+    def regionList(self, prefix="s."):
+        """
+        Retuns a list of all of regions names with the given prefix
+        :param prefix: String to prepend to each region name
+        :return: A List of region names
+        """
+        return [prefix + x.name for x in self.regions]
+
    
 ############################################################
  
@@ -1014,6 +1023,14 @@ class Region(object):
             y = float(a[0]*c[1] - a[1]*c[0])/det
 
         return Point(x,y)
+
+    def isBoundary(self):
+        """
+        Checks if region is a boundary region
+        :return: True iff the region is the boundary region
+        """
+
+        return self.name.lower() == "boundary"
         
     #
     #    # calculate the functions of the lines at the faces
