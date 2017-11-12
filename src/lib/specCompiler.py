@@ -247,10 +247,10 @@ class SpecCompiler(object):
                 # substitute decomposed region names
                 for r in self.proj.rfi.regions:
                     if not (r.isObstacle or r.isBoundary()):
-                        LTLspec_env = re.sub('\\bs\.' + r.name + '\\b', "("+' | '.join(["s."+x for x in self.parser.proj.regionMapping[r.name]])+")", LTLspec_env)
-                        LTLspec_env = re.sub('\\be\.' + r.name + '\\b', "("+' | '.join(["e."+x for x in self.parser.proj.regionMapping[r.name]])+")", LTLspec_env)
-                        LTLspec_sys = re.sub('\\bs\.' + r.name + '\\b', "("+' | '.join(["s."+x for x in self.parser.proj.regionMapping[r.name]])+")", LTLspec_sys)
-                        LTLspec_sys = re.sub('\\be\.' + r.name + '\\b', "("+' | '.join(["e."+x for x in self.parser.proj.regionMapping[r.name]])+")", LTLspec_sys)
+                        LTLspec_env = re.sub('\\bs\.' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "s."), LTLspec_env)
+                        LTLspec_env = re.sub('\\be\.' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "e."), LTLspec_env)
+                        LTLspec_sys = re.sub('\\bs\.' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "s."), LTLspec_sys)
+                        LTLspec_sys = re.sub('\\be\.' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "e."), LTLspec_sys)
 
             response = responses
 
@@ -279,8 +279,8 @@ class SpecCompiler(object):
                 # substitute decomposed region
                 for r in self.proj.rfi.regions:
                     if not (r.isObstacle or r.isBoundary()):
-                        LTLspec_env = re.sub('\\b(?:s\.)?' + r.name + '\\b', "("+' | '.join(["s."+x for x in self.parser.proj.regionMapping[r.name]])+")", LTLspec_env)
-                        LTLspec_sys = re.sub('\\b(?:s\.)?' + r.name + '\\b', "("+' | '.join(["s."+x for x in self.parser.proj.regionMapping[r.name]])+")", LTLspec_sys)
+                        LTLspec_env = re.sub('\\b(?:s\.)?' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "s."), LTLspec_env)
+                        LTLspec_sys = re.sub('\\b(?:s\.)?' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "s."), LTLspec_sys)
             else:
                 for r in self.proj.rfi.regions:
                     if not (r.isObstacle or r.isBoundary()):
@@ -303,7 +303,7 @@ class SpecCompiler(object):
                 # substitute decomposed region
                 for r in self.proj.rfi.regions:
                     if not (r.isObstacle or r.isBoundary()):
-                        text = re.sub('\\b' + r.name + '\\b', "("+' | '.join(["s."+x for x in self.parser.proj.regionMapping[r.name]])+")", text)
+                        text = re.sub('\\b' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "s."), text)
 
                 regionList = self.parser.proj.rfi.regionList("s.")
             else:
@@ -450,8 +450,8 @@ class SpecCompiler(object):
             # substitute decomposed region names
             for r in self.proj.rfi.regions:
                 if not (r.isObstacle or r.isBoundary()):
-                    text = re.sub('\\bs\.' + r.name + '\\b', "("+' | '.join(["s."+x for x in self.parser.proj.regionMapping[r.name]])+")", text)
-                    text = re.sub('\\be\.' + r.name + '\\b', "("+' | '.join(["e."+x for x in self.parser.proj.regionMapping[r.name]])+")", text)
+                    text = re.sub('\\bs\.' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "s."), text)
+                    text = re.sub('\\be\.' + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "e."), text)
 
         # Get a list of region names
         regionList = self._getRegionList()

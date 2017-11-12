@@ -205,14 +205,15 @@ class Project:
 
         fileMethods.writeToFile(filename, data, comments)
 
-    def mappedRegion(self, regionName):
+    def mappedRegion(self, regionName, prefix):
         """
         Returns an LTL fragment for the decomposed regions that are mapped to region
         :param regionName: The name of the region that was decomposed (str)
+        :param prefix: The string to append the beginning of the region name
         :return: LTL Fragment that is true iff in the region
         """
 
-        return "(" + ' | '.join(["s." + x for x in self.regionMapping[regionName]]) + ")"
+        return "(" + ' | '.join([prefix + x for x in self.regionMapping[regionName]]) + ")"
 
     def loadProject(self, spec_file):
         """
