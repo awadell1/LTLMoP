@@ -457,7 +457,7 @@ class RegionFileInterface(object):
 
         return True
 
-    def regionList(self, prefix="s."):
+    def regionList(self, prefix=""):
         """
         Retuns a list of all of regions names with the given prefix
         :param prefix: String to prepend to each region name

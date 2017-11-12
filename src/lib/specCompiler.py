@@ -155,11 +155,8 @@ class SpecCompiler(object):
                 if len(self.proj.regionMapping[r]) > 0:
                     costText = costText.replace(str(r), self.proj.regionMapping[r][0])
 
-            # Replace with binary names
-            if self.proj.compile_options["decompose"]:
-                regionList = [x.name for x in self.parser.proj.rfi.regions]
-            else:
-                regionList = [x.name for x in self.proj.rfi.regions]
+            # Get a list of region names
+            regionList = self._getRegionList()
 
             if self.proj.compile_options["use_region_bit_encoding"]:
                 # Define the number of bits needed to encode the regions
@@ -308,13 +305,13 @@ class SpecCompiler(object):
                     if not (r.isObstacle or r.isBoundary()):
                         text = re.sub('\\b' + r.name + '\\b', "("+' | '.join(["s."+x for x in self.parser.proj.regionMapping[r.name]])+")", text)
 
-                regionList = ["s."+x.name for x in self.parser.proj.rfi.regions]
+                regionList = self.parser.proj.rfi.regionList("s.")
             else:
                 for r in self.proj.rfi.regions:
                     if not (r.isObstacle or r.isBoundary()):
                         text = re.sub('\\b' + r.name + '\\b', "s."+r.name, text)
 
-                regionList = ["s."+x.name for x in self.proj.rfi.regions]
+                regionList = self.proj.rfi.regionList("s.")
 
             spec, traceback, failed, self.LTL2SpecLineNumber, self.proj.internal_props = parseEnglishToLTL.writeSpec(text, sensorList, regionList, robotPropList)
 
@@ -329,10 +326,8 @@ class SpecCompiler(object):
             logging.error("Parser type '{0}' not currently supported".format(self.proj.compile_options["parser"]))
             return None, None, None
 
-        if self.proj.compile_options["decompose"]:
-            regionList = [x.name for x in self.parser.proj.rfi.regions]
-        else:
-            regionList = [x.name for x in self.proj.rfi.regions]
+        # Get a list of region names
+        regionList = self._getRegionList()
 
         if self.proj.compile_options["use_region_bit_encoding"]:
             # Define the number of bits needed to encode the regions
@@ -458,10 +453,8 @@ class SpecCompiler(object):
                     text = re.sub('\\bs\.' + r.name + '\\b', "("+' | '.join(["s."+x for x in self.parser.proj.regionMapping[r.name]])+")", text)
                     text = re.sub('\\be\.' + r.name + '\\b', "("+' | '.join(["e."+x for x in self.parser.proj.regionMapping[r.name]])+")", text)
 
-        if self.proj.compile_options["decompose"]:
-            regionList = [x.name for x in self.parser.proj.rfi.regions]
-        else:
-            regionList = [x.name for x in self.proj.rfi.regions]
+        # Get a list of region names
+        regionList = self._getRegionList()
 
         # Define the number of bits needed to encode the regions
         numBits = int(math.ceil(math.log(len(regionList),2)))
@@ -1001,4 +994,16 @@ class SpecCompiler(object):
         #self._checkForEmptyGaits()
 
         return self._synthesize()
+
+    def _getRegionList(self):
+        """
+        Returns a list of region names from the parser.proj or self.proj depending on the setting of "decompose"
+        :return: A list of region names
+        """
+        if self.proj.compile_options["decompose"]:
+            regionList = self.parser.proj.rfi.regionList()
+        else:
+            regionList = self.proj.rfi.regionList()
+
+        return regionList
 
