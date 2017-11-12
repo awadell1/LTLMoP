@@ -28,3 +28,5 @@ src/lib/cores/picosat*
 .idea
 .classpath
 *.cost
+
+*.sublime-*
