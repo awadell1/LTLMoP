@@ -64,13 +64,13 @@ class WxAsynchronousProcessThread(AsynchronousProcessThread):
 class AnalysisResultsDialog(wx.Dialog):
     def __init__(self, parent, *args, **kwds):
         # begin wxGlade: AnalysisResultsDialog.__init__
-        kwds["style"] = wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER | wx.THICK_FRAME
+        kwds["style"] = wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
         wx.Dialog.__init__(self, *args, **kwds)
         self.label_3 = wx.StaticText(self, wx.ID_ANY, "Analysis Output:")
         self.text_ctrl_summary = wx.richtext.RichTextCtrl(self, wx.ID_ANY, "", style=wx.TE_MULTILINE | wx.TE_READONLY)
         self.button_refine = wx.Button(self, wx.ID_ANY, "Refine analysis")
         self.label_traceback = wx.StaticText(self, wx.ID_ANY, "SLURP Traceback:")
-        self.tree_ctrl_traceback = wx.TreeCtrl(self, wx.ID_ANY, style=wx.TR_HAS_BUTTONS | wx.TR_NO_LINES | wx.TR_FULL_ROW_HIGHLIGHT | wx.TR_HIDE_ROOT | wx.TR_DEFAULT_STYLE | wx.SUNKEN_BORDER)
+        self.tree_ctrl_traceback = wx.TreeCtrl(self, wx.ID_ANY, style=wx.BORDER_SUNKEN | wx.TR_DEFAULT_STYLE | wx.TR_FULL_ROW_HIGHLIGHT | wx.TR_HAS_BUTTONS | wx.TR_HIDE_ROOT | wx.TR_NO_LINES)
         self.button_1 = wx.Button(self, wx.ID_CLOSE, "")
 
         self.__set_properties()
@@ -99,7 +99,7 @@ class AnalysisResultsDialog(wx.Dialog):
         sizer_16 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_11.Add(self.label_3, 0, wx.ALL, 5)
         sizer_11.Add(self.text_ctrl_summary, 1, wx.ALL | wx.EXPAND, 5)
-        sizer_11.Add(self.button_refine, 0, wx.ALL | wx.ALIGN_RIGHT | wx.ALIGN_CENTER_VERTICAL, 5)
+        sizer_11.Add(self.button_refine, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_RIGHT | wx.ALL, 5)
         sizer_11.Add(self.label_traceback, 0, wx.ALL, 5)
         sizer_11.Add(self.tree_ctrl_traceback, 3, wx.ALL | wx.EXPAND, 5)
         sizer_16.Add((20, 20), 1, wx.EXPAND, 0)
@@ -254,13 +254,14 @@ class SpecEditorFrame(wx.Frame):
         # begin wxGlade: SpecEditorFrame.__init__
         kwds["style"] = wx.DEFAULT_FRAME_STYLE
         wx.Frame.__init__(self, *args, **kwds)
-
+        
         # Menu Bar
         self.frame_1_menubar = wx.MenuBar()
         global MENU_IMPORT_REGION; MENU_IMPORT_REGION = wx.NewId()
         global MENU_COMPILE; MENU_COMPILE = wx.NewId()
         global MENU_COMPILECONFIG; MENU_COMPILECONFIG = wx.NewId()
         global MENU_CONVEXIFY; MENU_CONVEXIFY = wx.NewId()
+        global MENU_OPTIMAL; MENU_OPTIMAL = wx.NewId()
         global MENU_FASTSLOW; MENU_FASTSLOW = wx.NewId()
         global MENU_BITVECTOR; MENU_BITVECTOR = wx.NewId()
         global MENU_PARSERMODE; MENU_PARSERMODE = wx.NewId()
@@ -297,6 +298,7 @@ class SpecEditorFrame(wx.Frame):
         wxglade_tmp_menu.Append(MENU_COMPILE, "&Compile\tF5", "", wx.ITEM_NORMAL)
         wxglade_tmp_menu_sub = wx.Menu()
         wxglade_tmp_menu_sub.Append(MENU_CONVEXIFY, "Decompose workspace into convex regions", "", wx.ITEM_CHECK)
+        wxglade_tmp_menu_sub.Append(MENU_OPTIMAL, "Optimal", "", wx.ITEM_CHECK)
         wxglade_tmp_menu_sub.Append(MENU_FASTSLOW, "Enable \"fast-slow\" synthesis", "", wx.ITEM_CHECK)
         wxglade_tmp_menu_sub.Append(MENU_BITVECTOR, "Use bit-vector region encoding", "", wx.ITEM_CHECK)
         wxglade_tmp_menu_sub_sub = wx.Menu()
@@ -328,23 +330,23 @@ class SpecEditorFrame(wx.Frame):
         self.window_1_pane_1 = wx.Panel(self.window_1, wx.ID_ANY)
         self.panel_1 = wx.ScrolledWindow(self.window_1_pane_1, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
         self.label_1 = wx.StaticText(self.panel_1, wx.ID_ANY, "Regions:")
-        self.list_box_regions = wx.ListBox(self.panel_1, wx.ID_ANY, choices=[], style=wx.LB_SINGLE)
+        self.list_box_regions = wx.ListBox(self.panel_1, wx.ID_ANY, choices=[])
         self.button_map = wx.Button(self.panel_1, wx.ID_ANY, "Select from Map...")
         self.button_edit_regions = wx.Button(self.panel_1, wx.ID_ANY, "Edit Regions...")
         self.label_1_copy = wx.StaticText(self.panel_1, wx.ID_ANY, "Sensors:")
-        self.list_box_sensors = wx.CheckListBox(self.panel_1, wx.ID_ANY, choices=[], style=wx.LB_SINGLE)
+        self.list_box_sensors = wx.CheckListBox(self.panel_1, wx.ID_ANY, choices=[])
         self.button_sensor_add = wx.Button(self.panel_1, wx.ID_ADD, "")
         self.button_sensor_remove = wx.Button(self.panel_1, wx.ID_REMOVE, "")
         self.label_1_copy_1 = wx.StaticText(self.panel_1, wx.ID_ANY, "Actions:")
-        self.list_box_actions = wx.CheckListBox(self.panel_1, wx.ID_ANY, choices=[], style=wx.LB_SINGLE)
+        self.list_box_actions = wx.CheckListBox(self.panel_1, wx.ID_ANY, choices=[])
         self.button_actuator_add = wx.Button(self.panel_1, wx.ID_ADD, "")
         self.button_actuator_remove = wx.Button(self.panel_1, wx.ID_REMOVE, "")
         self.label_1_copy_2 = wx.StaticText(self.panel_1, wx.ID_ANY, "Custom Propositions:")
-        self.list_box_customs = wx.ListBox(self.panel_1, wx.ID_ANY, choices=[], style=wx.LB_SINGLE)
+        self.list_box_customs = wx.ListBox(self.panel_1, wx.ID_ANY, choices=[])
         self.button_custom_add = wx.Button(self.panel_1, wx.ID_ADD, "")
         self.button_custom_remove = wx.Button(self.panel_1, wx.ID_REMOVE, "")
         self.window_1_pane_2 = wx.Panel(self.window_1, wx.ID_ANY)
-        self.notebook_1 = wx.Notebook(self.window_1_pane_2, wx.ID_ANY, style=0)
+        self.notebook_1 = wx.Notebook(self.window_1_pane_2, wx.ID_ANY)
         self.notebook_1_pane_1 = wx.Panel(self.notebook_1, wx.ID_ANY)
         self.text_ctrl_log = wx.richtext.RichTextCtrl(self.notebook_1_pane_1, wx.ID_ANY, "", style=wx.TE_MULTILINE | wx.TE_READONLY)
         self.notebook_1_pane_2 = wx.Panel(self.notebook_1, wx.ID_ANY)
@@ -354,7 +356,7 @@ class SpecEditorFrame(wx.Frame):
         self.list_box_locphrases = wx.ListBox(self.notebook_1_pane_3, wx.ID_ANY, choices=[], style=wx.LB_ALWAYS_SB)
         self.checkbox_regionlabel = wx.CheckBox(self.notebook_1_pane_3, wx.ID_ANY, "Show region names")
         self.checkbox_regionlabelbits = wx.CheckBox(self.notebook_1_pane_3, wx.ID_ANY, "Include bit-vector representations")
-        self.panel_locmap = wx.Panel(self.notebook_1_pane_3, wx.ID_ANY, style=wx.SUNKEN_BORDER | wx.TAB_TRAVERSAL | wx.FULL_REPAINT_ON_RESIZE)
+        self.panel_locmap = wx.Panel(self.notebook_1_pane_3, wx.ID_ANY, style=wx.BORDER_SUNKEN | wx.FULL_REPAINT_ON_RESIZE | wx.TAB_TRAVERSAL)
 
         self.__set_properties()
         self.__do_layout()
@@ -373,6 +375,7 @@ class SpecEditorFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.onMenuPaste, id=wx.ID_PASTE)
         self.Bind(wx.EVT_MENU, self.onMenuCompile, id=MENU_COMPILE)
         self.Bind(wx.EVT_MENU, self.onMenuSetCompileOptions, id=MENU_CONVEXIFY)
+        self.Bind(wx.EVT_MENU, self.onMenuSetCompileOptions, id=MENU_OPTIMAL)
         self.Bind(wx.EVT_MENU, self.onMenuSetCompileOptions, id=MENU_FASTSLOW)
         self.Bind(wx.EVT_MENU, self.onMenuSetCompileOptions, id=MENU_BITVECTOR)
         self.Bind(wx.EVT_MENU, self.onMenuSetCompileOptions, id=MENU_PARSERMODE_SLURP)
@@ -583,30 +586,30 @@ class SpecEditorFrame(wx.Frame):
         sizer_11 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_6 = wx.BoxSizer(wx.HORIZONTAL)
         sizer_7 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_5.Add(self.label_1, 0, wx.LEFT | wx.TOP | wx.BOTTOM, 4)
-        sizer_5.Add(self.list_box_regions, 2, wx.LEFT | wx.EXPAND, 4)
+        sizer_5.Add(self.label_1, 0, wx.BOTTOM | wx.LEFT | wx.TOP, 4)
+        sizer_5.Add(self.list_box_regions, 2, wx.EXPAND | wx.LEFT, 4)
         sizer_7.Add(self.button_map, 0, wx.TOP, 5)
         sizer_7.Add((5, 20), 0, 0, 0)
         sizer_7.Add(self.button_edit_regions, 0, wx.TOP, 5)
-        sizer_5.Add(sizer_7, 0, wx.LEFT | wx.EXPAND, 4)
-        sizer_5.Add(self.label_1_copy, 0, wx.LEFT | wx.TOP | wx.BOTTOM, 4)
-        sizer_5.Add(self.list_box_sensors, 2, wx.LEFT | wx.EXPAND, 4)
+        sizer_5.Add(sizer_7, 0, wx.EXPAND | wx.LEFT, 4)
+        sizer_5.Add(self.label_1_copy, 0, wx.BOTTOM | wx.LEFT | wx.TOP, 4)
+        sizer_5.Add(self.list_box_sensors, 2, wx.EXPAND | wx.LEFT, 4)
         sizer_6.Add(self.button_sensor_add, 0, wx.TOP, 5)
         sizer_6.Add((5, 20), 0, 0, 0)
         sizer_6.Add(self.button_sensor_remove, 0, wx.TOP, 5)
-        sizer_5.Add(sizer_6, 0, wx.LEFT | wx.EXPAND, 4)
-        sizer_5.Add(self.label_1_copy_1, 0, wx.LEFT | wx.TOP | wx.BOTTOM, 4)
-        sizer_5.Add(self.list_box_actions, 2, wx.LEFT | wx.EXPAND, 4)
+        sizer_5.Add(sizer_6, 0, wx.EXPAND | wx.LEFT, 4)
+        sizer_5.Add(self.label_1_copy_1, 0, wx.BOTTOM | wx.LEFT | wx.TOP, 4)
+        sizer_5.Add(self.list_box_actions, 2, wx.EXPAND | wx.LEFT, 4)
         sizer_11.Add(self.button_actuator_add, 0, wx.TOP, 5)
         sizer_11.Add((5, 20), 0, 0, 0)
         sizer_11.Add(self.button_actuator_remove, 0, wx.TOP, 5)
-        sizer_5.Add(sizer_11, 0, wx.LEFT | wx.EXPAND, 6)
-        sizer_5.Add(self.label_1_copy_2, 0, wx.LEFT | wx.TOP | wx.BOTTOM, 4)
-        sizer_5.Add(self.list_box_customs, 2, wx.LEFT | wx.EXPAND, 4)
+        sizer_5.Add(sizer_11, 0, wx.EXPAND | wx.LEFT, 6)
+        sizer_5.Add(self.label_1_copy_2, 0, wx.BOTTOM | wx.LEFT | wx.TOP, 4)
+        sizer_5.Add(self.list_box_customs, 2, wx.EXPAND | wx.LEFT, 4)
         sizer_8.Add(self.button_custom_add, 0, wx.TOP, 5)
         sizer_8.Add((5, 20), 0, 0, 0)
         sizer_8.Add(self.button_custom_remove, 0, wx.TOP, 5)
-        sizer_5.Add(sizer_8, 0, wx.LEFT | wx.EXPAND, 4)
+        sizer_5.Add(sizer_8, 0, wx.EXPAND | wx.LEFT, 4)
         self.panel_1.SetSizer(sizer_5)
         sizer_4.Add(self.panel_1, 1, wx.EXPAND, 0)
         self.window_1_pane_1.SetSizer(sizer_4)
@@ -620,7 +623,7 @@ class SpecEditorFrame(wx.Frame):
         sizer_15.Add(self.list_box_locphrases, 1, wx.EXPAND, 0)
         sizer_15.Add((20, 20), 0, 0, 0)
         sizer_15.Add(self.checkbox_regionlabel, 0, wx.EXPAND, 0)
-        sizer_15.Add(self.checkbox_regionlabelbits, 0, wx.LEFT | wx.EXPAND, 20)
+        sizer_15.Add(self.checkbox_regionlabelbits, 0, wx.EXPAND | wx.LEFT, 20)
         sizer_15.Add((20, 20), 0, 0, 0)
         sizer_14.Add(sizer_15, 1, wx.EXPAND, 0)
         sizer_14.Add((5, 20), 0, 0, 0)
@@ -1053,6 +1056,11 @@ class SpecEditorFrame(wx.Frame):
         self.appendLog("Creating LTL...\n", "BLUE")
 
         spec, self.tracebackTree, self.response = compiler._writeLTLFile()
+        
+        # Add Interal Specs
+        if self.proj.compile_options["optimal"] == "twodim":
+            self.proj.internal_props.append("_l_a_c_v_1")
+            self.proj.internal_props.append("_is_infty_cost_Pre")
 
         # Add any auto-generated propositions to the list
         # TODO: what about removing old ones?
@@ -1065,7 +1073,6 @@ class SpecEditorFrame(wx.Frame):
             if s not in self.list_box_sensors.GetItems():
                 self.list_box_sensors.Insert(s,0)
                 self.list_box_sensors.Check(0)
-
 
         if self.tracebackTree is None:
             sys.stdout = sys.__stdout__
@@ -1103,6 +1110,9 @@ class SpecEditorFrame(wx.Frame):
 
             # Display output realtime in the log
             wx.CallAfter(self.appendLog, "\t"+text)
+
+        if self.proj.compile_options["optimal"] == "twodim":
+            compiler._writeCostFile()
 
         # Kick off the synthesis
         try:
@@ -1662,6 +1672,11 @@ class SpecEditorFrame(wx.Frame):
             self.proj.compile_options["synthesizer"] = "jtlv"
         elif self.frame_1_menubar.IsChecked(MENU_SYNTHESIZER_SLUGS):
             self.proj.compile_options["synthesizer"] = "slugs"
+        
+        if self.frame_1_menubar.IsChecked(MENU_OPTIMAL):
+            self.proj.compile_options["optimal"] = "twoDim"
+        else:
+            self.proj.compile_options["optimal"] = "none"
 
         self.dirty = True
 

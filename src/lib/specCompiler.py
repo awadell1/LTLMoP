@@ -145,6 +145,41 @@ class SpecCompiler(object):
 
         createSMVfile(self.proj.getFilenamePrefix(), sensorList, robotPropList)
 
+    def _writeCostFile(self):
+            filename = self.proj.getFilenamePrefix() + ".cost"
+            costFile = open(filename, 'w')
+            
+            # Replace Region names with pX names
+            costText = self.proj.costText
+            for r in self.proj.regionMapping:
+                if len(self.proj.regionMapping[r]) > 0:
+                    costText = costText.replace(str(r), self.proj.regionMapping[r][0])
+
+            # Replace with binary names
+            if self.proj.compile_options["decompose"]:
+                regionList = [x.name for x in self.parser.proj.rfi.regions]
+            else:
+                regionList = [x.name for x in self.proj.rfi.regions]
+
+            if self.proj.compile_options["use_region_bit_encoding"]:
+                # Define the number of bits needed to encode the regions
+                numBits = int(math.ceil(math.log(len(regionList),2)))
+
+                # creating the region bit encoding
+                bitEncode = bitEncoding(len(regionList),numBits)
+                currBitEnc = bitEncode['current']
+                nextBitEnc = bitEncode['next']
+
+                # switch to bit encodings for regions
+                for r in regionList:
+                    ind = regionList.index(r)
+                    costText = costText.replace(str(r), currBitEnc[ind])
+
+            # Write the cost file
+            costText = costText.replace("s.","")
+            costFile.write(costText)
+
+
     def _writeLTLFile(self):
 
         self.LTL2SpecLineNumber = None
@@ -498,8 +533,14 @@ class SpecCompiler(object):
         if not os.path.exists(slugs_path):
             # TODO: automatically compile for the user
             raise RuntimeError("Please compile the synthesis code first.  For instructions, see etc/slugs/README.md.")
-
-        cmd = [slugs_path, "--explicitStrategy", self.proj.getFilenamePrefix() + ".slugsin", self.proj.getFilenamePrefix() + ".aut"]
+        
+        # Check for Optimal Sythesis
+        if self.proj.compile_options["optimal"] == "none":
+            cmd = [slugs_path, "--explicitStrategy", self.proj.getFilenamePrefix() + ".slugsin", self.proj.getFilenamePrefix() + ".aut"]
+        elif self.proj.compile_options["optimal"] == "twodim":
+            cmd = [slugs_path, "--explicitStrategy", self.proj.getFilenamePrefix() + ".slugsin",
+                   "--twoDimensionalCost", self.proj.getFilenamePrefix() + ".cost",
+                   self.proj.getFilenamePrefix() + ".aut"]
 
         return cmd
 
@@ -540,7 +581,7 @@ class SpecCompiler(object):
         region_domain = strategy.Domain("region", regions, strategy.Domain.B0_IS_MSB)
         strat = strategy.createStrategyFromFile(self.proj.getStrategyFilename(),
                                                 self.proj.enabled_sensors,
-                                                self.proj.enabled_actuators + self.proj.all_customs + [region_domain])
+                                                self.proj.enabled_actuators + self.proj.all_customs + self.proj.internal_props + [region_domain])
 
         nonTrivial = any([len(strat.findTransitionableStates({}, s)) > 0 for s in strat.iterateOverStates()])
 

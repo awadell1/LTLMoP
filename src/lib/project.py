@@ -29,6 +29,8 @@ class Project:
         self.regionMapping = None
         self.rfi = None
         self.specText = ""
+        self.hasCost = False
+        self.costText = ""
         self.all_sensors = []
         self.enabled_sensors = []
         self.all_actuators = []
@@ -47,6 +49,7 @@ class Project:
                                 "decompose": True,  # Create regions for free space and region overlaps (required for Locative Preposition support)
                                 "use_region_bit_encoding": True, # Use a vector of "bitX" propositions to represent regions, for efficiency
                                 "synthesizer": "jtlv", # Name of synthesizer to use ("jtlv" or "slugs")
+                                "optimal": "none",  # Method for applying cost to sythesis ("none" or "twoDim")
                                 "parser": "structured"}  # Spec parser: SLURP ("slurp"), structured English ("structured"), or LTL ("ltl")
 
         self.ltlmop_root = globalConfig.get_ltlmop_root()
@@ -128,6 +131,13 @@ class Project:
             self.specText = '\n'.join(spec_data['SPECIFICATION']['Spec'])
         except KeyError:
             logging.warning("Specification text undefined")
+            
+        try:
+            self.costText = '\n'.join(spec_data['SPECIFICATION']['Cost'])
+            self.hasCost = True
+        except KeyError:
+            self.hasCost = False
+            logging.warning("Cost text undefined")
 
         if 'CompileOptions' in spec_data['SETTINGS']:
             for l in spec_data['SETTINGS']['CompileOptions']:
@@ -135,11 +145,16 @@ class Project:
                     continue
 
                 k,v = l.split(":", 1)
-                if k.strip().lower() in ("parser", "synthesizer"):
+                if k.strip().lower() in ("parser", "synthesizer", "optimal"):
                     self.compile_options[k.strip().lower()] = v.strip().lower()
                 else:
                     # convert to boolean if not a parser type
                     self.compile_options[k.strip().lower()] = (v.strip().lower() in ['true', 't', '1'])
+                    
+        # Add Interal Specs for Two Dimensional Cost
+        if self.compile_options["optimal"] == "twodim":
+            self.internal_props.append("_l_a_c_v_1")
+            self.internal_props.append("_is_infty_cost_Pre")
 
         return spec_data
 
@@ -154,7 +169,11 @@ class Project:
 
         data = {}
 
-        data['SPECIFICATION'] = {"Spec": self.specText}
+        if self.hasCost:
+            data['SPECIFICATION'] = {"Spec": self.specText, "Cost": self.costText}
+        else:
+            data['SPECIFICATION'] = {"Spec": self.specText}
+
 
         if self.regionMapping is not None:
             data['SPECIFICATION']['RegionMapping'] = [rname + " = " + ', '.join(rlist) for
@@ -181,6 +200,7 @@ class Project:
                     "Actions": "List of action propositions and their state (enabled = 1, disabled = 0)",
                     "Customs": "List of custom propositions",
                     "Spec": "Specification in structured English",
+                    "Cost": "Transistion Weights in structured English",
                     "RegionMapping": "Mapping between region names and their decomposed counterparts"}
 
         fileMethods.writeToFile(filename, data, comments)

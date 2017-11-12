@@ -131,7 +131,7 @@ class LTLMoPExecutor(ExecutorStrategyExtensions,ExecutorResynthesisExtensions, o
         region_domain = strategy.Domain("region",  self.proj.rfi.regions, strategy.Domain.B0_IS_MSB)
         strat = strategy.createStrategyFromFile(filename,
                                                 self.proj.enabled_sensors,
-                                                self.proj.enabled_actuators + self.proj.all_customs +  [region_domain])
+                                                self.proj.enabled_actuators + self.proj.all_customs +  self.proj.internal_props + [region_domain])
 
         return strat
 
@@ -279,7 +279,7 @@ class LTLMoPExecutor(ExecutorStrategyExtensions,ExecutorResynthesisExtensions, o
         ## outputs
         if firstRun or self.strategy is None:
             # save the initial values of the actuators and the custom propositions
-            for prop in self.proj.enabled_actuators + self.proj.all_customs:
+            for prop in self.proj.enabled_actuators + self.proj.all_customs + self.proj.internal_props:
                 self.current_outputs[prop] = (prop in self.hsub.executing_config.initial_truths)
 
         init_prop_assignments.update(self.current_outputs)

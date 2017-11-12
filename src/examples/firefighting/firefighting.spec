@@ -11,13 +11,14 @@ radio, 1
 extinguish, 0
 
 CompileOptions:
+synthesizer: slugs
+fastslow: False
 convexify: True
+optimal: twodim
 parser: structured
 symbolic: False
-use_region_bit_encoding: True
-synthesizer: jtlv
-fastslow: False
 decompose: True
+use_region_bit_encoding: True
 
 CurrentConfigName:
 Basic Simulation
@@ -35,6 +36,10 @@ hazardous_item, 1
 
 
 ======== SPECIFICATION ========
+
+Cost: # Transistion Weights in structured English
+1 0 <
+10.0 deck
 
 RegionMapping: # Mapping between region names and their decomposed counterparts
 living = p4

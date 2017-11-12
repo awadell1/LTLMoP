@@ -27,3 +27,4 @@ src/lib/cores/picosat*
 .ropeproject
 .idea
 .classpath
+*.cost
