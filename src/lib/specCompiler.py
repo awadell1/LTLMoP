@@ -167,6 +167,29 @@ class SpecCompiler(object):
 
         createSMVfile(self.proj.getFilenamePrefix(), sensorList, robotPropList)
 
+    def _replaceInputNames(self, formula):
+        """
+        Prepends all input propositions with "e." in the formala
+        :param formula: An LTL fragment
+        :return: formula with all "inputProp" replaced with "e.inputProp"
+        """
+        for inProp in self.proj.all_sensors:
+            formula = formula.replace(inProp, "e."+ inProp)
+
+        return formula
+
+    def _replaceOutputNames(self, formula):
+        """
+        Prepends all output propositions with "s." in the formala
+        :param formula: An LTL fragment
+        :return: formula with all "outputProp" replaced with "s.outputProp"
+        """
+        for outProp in self.proj.all_actuators:
+            formula = formula.replace(outProp, "s."+ outProp)
+
+        return formula
+
+
     def _writeCostFile(self):
         """
         Generates .cost file from the cost text supplied by the specification
@@ -189,7 +212,7 @@ class SpecCompiler(object):
         from translateFromLTLMopLTLFormatToSlugsFormat import parseLTL, parseSimpleFormula
 
         # Regex used for parsing cost spec
-        RE_FACTOR = re.compile('\d \d <', re.IGNORECASE)
+        RE_FACTOR = re.compile('\d \d (<|>)', re.IGNORECASE)
         RE_ENTRY = re.compile('(\\d+\\.\\d+)\\s(.*)', re.IGNORECASE)
 
         # Step through Cost Specification
@@ -197,7 +220,7 @@ class SpecCompiler(object):
         for line in self.proj.costText.split('\n'):
             # Check if First Line -> Cost Factors
             if len(costText) == 0:
-                if RE_FACTOR.search(line):
+                if RE_FACTOR.search(line) != None:
                     costText.append(line)
                     continue
                 else:
@@ -213,6 +236,12 @@ class SpecCompiler(object):
 
             # Replace Formula with bit encoding
             formula = replaceRegionName(formula, bitEncode, regionList)
+
+            # Replace Input (Sensor) names
+            formula = self._replaceInputNames(formula)
+
+            # Replace Output (Actuator) names
+            formula = self._replaceOutputNames(formula)
 
             # Parse into SLUGS format (Postfix notation)
             formulaTree = parseLTL(formula+';')
