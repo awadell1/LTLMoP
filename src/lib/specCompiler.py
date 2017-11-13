@@ -35,6 +35,25 @@ class SpecCompiler(object):
 
         if spec_filename is not None:
             self.loadSpec(spec_filename)
+        
+        # Set up SLUGS if needed
+        self._setupSLUGS()
+
+    def _setupSLUGS(self):
+        """
+        Checks that SLUGS is compiles and imports need libraris
+        """
+        if self.proj.compile_options["synthesizer"].lower() == "slugs":
+            # Check that slugs is compiled
+            slugs_path = os.path.join(self.proj.ltlmop_root, "etc", "slugs", "src", "slugs")
+            if not os.path.exists(slugs_path):
+                # TODO: automatically compile for the user
+                raise RuntimeError("Please compile the synthesis code first.  For instructions, see etc/slugs/README.md.")
+
+            # Add the slugs tool folder to the path
+            slugs_converter_path = os.path.join(self.proj.ltlmop_root, "etc", "slugs", "tools")
+            sys.path.insert(0, slugs_converter_path)
+
 
     def loadSpec(self,spec_filename):
         """
@@ -53,6 +72,9 @@ class SpecCompiler(object):
         if self.specText.strip() == "":
             logging.warning("Please write a specification before compiling.")
             return
+
+        # Set up SLUGS if needed
+        self._setupSLUGS()
 
     def loadSimpleSpec(self,text="", regionList=[], sensors=[], actuators=[], customs=[], adj=[], outputfile=""):
         """
@@ -146,35 +168,62 @@ class SpecCompiler(object):
         createSMVfile(self.proj.getFilenamePrefix(), sensorList, robotPropList)
 
     def _writeCostFile(self):
-            filename = self.proj.getFilenamePrefix() + ".cost"
-            costFile = open(filename, 'w')
-            
-            # Replace Region names with pX names
-            costText = self.proj.costText
-            for r in self.proj.regionMapping:
-                if len(self.proj.regionMapping[r]) > 0:
-                    costText = costText.replace(str(r), self.proj.regionMapping[r][0])
+        """
+        Generates .cost file from the cost text supplied by the specification
+        :return: None
+        """
+        filename = self.proj.getFilenamePrefix() + ".cost"
+        costFile = open(filename, 'w')
 
-            # Get a list of region names
-            regionList = self._getRegionList()
+        # Get a list of region names
+        regionList = self._getRegionList()
 
-            if self.proj.compile_options["use_region_bit_encoding"]:
-                # Define the number of bits needed to encode the regions
-                numBits = int(math.ceil(math.log(len(regionList),2)))
+        # Must use bit encoding with slugs
+        assert self.proj.compile_options["use_region_bit_encoding"]
 
-                # creating the region bit encoding
-                bitEncode = bitEncoding(len(regionList),numBits)
-                currBitEnc = bitEncode['current']
-                nextBitEnc = bitEncode['next']
+        # Create the region bit encoding
+        numBits = int(math.ceil(math.log(len(regionList), 2)))
+        bitEncode = bitEncoding(len(regionList), numBits)
 
-                # switch to bit encodings for regions
-                for r in regionList:
-                    ind = regionList.index(r)
-                    costText = costText.replace(str(r), currBitEnc[ind])
+        # Add the conversion script to our path
+        from translateFromLTLMopLTLFormatToSlugsFormat import parseLTL, parseSimpleFormula
 
-            # Write the cost file
-            costText = costText.replace("s.","")
-            costFile.write(costText)
+        # Regex used for parsing cost spec
+        RE_FACTOR = re.compile('\d \d <', re.IGNORECASE)
+        RE_ENTRY = re.compile('(\\d+\\.\\d+)\\s(.*)', re.IGNORECASE)
+
+        # Step through Cost Specification
+        costText = []
+        for line in self.proj.costText.split('\n'):
+            # Check if First Line -> Cost Factors
+            if len(costText) == 0:
+                if RE_FACTOR.search(line):
+                    costText.append(line)
+                    continue
+                else:
+                    RuntimeError("The first line of the cost spec must always represent the cost factors for waiting and delay cost.")
+
+            # Split into the value and formula portions and check for success
+            entryRE = RE_ENTRY.search(line)
+            value = entryRE.group(1)
+            formula = entryRE.group(2)
+
+            # Replace region names in cost with decomposed region names
+            formula = self._subDecompedRegion(formula)
+
+            # Replace Formula with bit encoding
+            formula = replaceRegionName(formula, bitEncode, regionList)
+
+            # Parse into SLUGS format (Postfix notation)
+            formulaTree = parseLTL(formula+';')
+            formula = parseSimpleFormula(formulaTree[1], False)
+            formula = ' '.join(formula)
+
+            # Append to cost text
+            costText.append(value + ' ' + formula)
+
+        # Write costText to file
+        costFile.write("\n".join(costText))
 
 
     def _writeLTLFile(self):
@@ -277,7 +326,6 @@ class SpecCompiler(object):
                 # substitute decomposed region
                 LTLspec_env = self._subDecompedRegion(LTLspec_env, '\\b(?:s\.)?')
                 LTLspec_sys = self._subDecompedRegion(LTLspec_sys, '\\b(?:s\.)?')
-                
             else:
                 for r in self.proj.rfi.regions:
                     if not (r.isObstacle or r.isBoundary()):
@@ -883,9 +931,7 @@ class SpecCompiler(object):
             This is a stop-gap fix; eventually we should just produce the input
             directly instead of using the conversion script. """
 
-        # Add the conversion script to our path
-        slugs_converter_path = os.path.join(self.proj.ltlmop_root, "etc", "slugs", "tools")
-        sys.path.insert(0, slugs_converter_path)
+        # Import Converter function
         from translateFromLTLMopLTLFormatToSlugsFormat import performConversion
 
         # Call the conversion script
