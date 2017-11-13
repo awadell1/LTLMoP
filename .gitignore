@@ -30,3 +30,7 @@ src/socket
 src/re
 src/logging
 src/ast
+*.slugsin
+.classpath
+*.cost
+*.sublime-*
