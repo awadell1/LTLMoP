@@ -169,10 +169,7 @@ class SpecCompiler(object):
         self.proj.writeSpecFile()
 
     def _writeSMVFile(self):
-        if self.proj.compile_options["decompose"]:
-            numRegions = len(self.parser.proj.rfi.regions)
-        else:
-            numRegions = len(self.proj.rfi.regions)
+        numRegions = len(self.rfi.regions)
         sensorList = self.proj.enabled_sensors
         robotPropList = self.proj.enabled_actuators + self.proj.all_customs + self.proj.internal_props
 
@@ -180,10 +177,7 @@ class SpecCompiler(object):
         if self.proj.compile_options["use_region_bit_encoding"]:
             robotPropList.extend(["bit"+str(i) for i in range(0,int(numpy.ceil(numpy.log2(numRegions))))])
         else:
-            if self.proj.compile_options["decompose"]:
-                robotPropList.extend([r.name for r in self.parser.proj.rfi.regions])
-            else:
-                robotPropList.extend([r.name for r in self.proj.rfi.regions])
+            robotPropList.extend([r.name for r in self.rfi.regions])
 
         self.propList = sensorList + robotPropList
 
@@ -495,17 +489,12 @@ class SpecCompiler(object):
                         self.LTL2SpecLineNumber[new_k] = self.LTL2SpecLineNumber[k]
                         del self.LTL2SpecLineNumber[k]
 
-        if self.proj.compile_options["decompose"]:
-            adjData = self.parser.proj.rfi.transitions
-        else:
-            adjData = self.proj.rfi.transitions
+        adjData = self.rfi.transitions
 
         # Store some data needed for later analysis
         self.spec = {}
-        if self.proj.compile_options["decompose"]:
-            self.spec['Topo'] = createTopologyFragment(adjData, self.parser.proj.rfi.regions, use_bits=self.proj.compile_options["use_region_bit_encoding"])
-        else:
-            self.spec['Topo'] = createTopologyFragment(adjData, self.proj.rfi.regions, use_bits=self.proj.compile_options["use_region_bit_encoding"])
+        self.spec['Topo'] = createTopologyFragment(adjData, self.rfi.regions,
+                                                   use_bits=self.proj.compile_options["use_region_bit_encoding"])
 
         # Substitute any macros that the parsers passed us
         LTLspec_env = self.substituteMacros(LTLspec_env)
@@ -517,10 +506,7 @@ class SpecCompiler(object):
             # DNF version (extremely slow for core-finding)
             #mutex = "\n\t&\n\t []({})".format(" | ".join(["({})".format(" & ".join(["s."+r2.name if r is r2 else "!s."+r2.name for r2 in self.parser.proj.rfi.regions])) for r in self.parser.proj.rfi.regions]))
 
-            if self.proj.compile_options["decompose"]:
-                region_list = self.parser.proj.rfi.regions
-            else:
-                region_list = self.proj.rfi.regions
+            region_list = self.rfi.regions
 
             # Almost-CNF version
             exclusions = []
@@ -533,10 +519,8 @@ class SpecCompiler(object):
         self.spec.update(self.splitSpecIntoComponents(LTLspec_env, LTLspec_sys))
 
         # Add in a fragment to make sure that we start in a valid region
-        if self.proj.compile_options["decompose"]:
-            self.spec['InitRegionSanityCheck'] = createInitialRegionFragment(self.parser.proj.rfi.regions, use_bits=self.proj.compile_options["use_region_bit_encoding"])
-        else:
-            self.spec['InitRegionSanityCheck'] = createInitialRegionFragment(self.proj.rfi.regions, use_bits=self.proj.compile_options["use_region_bit_encoding"])
+        self.spec['InitRegionSanityCheck'] = createInitialRegionFragment(self.rfi.regions, use_bits=self.proj.compile_options["use_region_bit_encoding"])
+
         LTLspec_sys += "\n&\n" + self.spec['InitRegionSanityCheck']
 
         LTLspec_sys += "\n&\n" + self.spec['Topo']
@@ -591,10 +575,7 @@ class SpecCompiler(object):
         # using bit encodings (and thus much faster to encode as CNF)
 
         if "STAY_THERE" in text:
-            if self.proj.compile_options["decompose"]:
-                text = text.replace("STAY_THERE", createStayFormula([r.name for r in self.parser.proj.rfi.regions], use_bits=self.proj.compile_options["use_region_bit_encoding"]))
-            else:
-                text = text.replace("STAY_THERE", createStayFormula([r.name for r in self.proj.rfi.regions], use_bits=self.proj.compile_options["use_region_bit_encoding"]))
+            text = text.replace("STAY_THERE", createStayFormula([r.name for r in self.rfi.regions], use_bits=self.proj.compile_options["use_region_bit_encoding"]))
 
         if "TARGET_IS_STATIONARY" in text:
             text = text.replace("TARGET_IS_STATIONARY", createStayFormula([r.name for r in self.parser.proj.rfi.regions], use_bits=self.proj.compile_options["use_region_bit_encoding"]).replace("s.","e.s"))
@@ -727,11 +708,7 @@ class SpecCompiler(object):
         load the whole aut just to check this.
         """
 
-        if self.proj.compile_options["decompose"]:
-            regions = self.parser.proj.rfi.regions
-        else:
-            regions = self.proj.rfi.regions
-
+        regions = self.rfi.regions
         region_domain = strategy.Domain("region", regions, strategy.Domain.B0_IS_MSB)
         strat = strategy.createStrategyFromFile(self.proj.getStrategyFilename(),
                                                 self.proj.enabled_sensors,
@@ -853,11 +830,7 @@ class SpecCompiler(object):
         proj_copy.actuator_handler = None
         proj_copy.h_instance = None
 
-        if self.proj.compile_options["decompose"]:
-            regions = self.parser.proj.rfi.regions
-        else:
-            regions = self.proj.rfi.regions
-
+        regions = self.rgi.regions
         region_domain = strategy.Domain("region", regions, strategy.Domain.B0_IS_MSB)
         strat = strategy.createStrategyFromFile(self.proj.getStrategyFilename(),
                                                 self.proj.enabled_actuators + self.proj.all_customs + [region_domain],
@@ -1195,13 +1168,9 @@ class SpecCompiler(object):
 
     def _getRegionList(self):
         """
-        Returns a list of region names from the parser.proj or self.proj depending on the setting of "decompose"
         :return: A list of region names
         """
-        if self.proj.compile_options["decompose"]:
-            regionList = self.parser.proj.rfi.regionList()
-        else:
-            regionList = self.proj.rfi.regionList()
+        regionList = self.rfi.regionList()
 
         return regionList
 
@@ -1243,3 +1212,14 @@ class SpecCompiler(object):
         print "OUTPUT",output
         return to_highlight
 
+    @property
+    def rfi(self):
+        """
+        Gives the correct Region File Interface instance based on the decompose setting
+        If decompose is true, returns parser's rfi. Otherwise returns the project's rfi
+        :return: A Region File Interface
+        """
+        if self.proj.compile_options["decompose"]:
+            return self.parser.proj.rfi
+        else:
+            return self.proj.rfi
