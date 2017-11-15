@@ -39,11 +39,12 @@ Cost: # Transistion Weights in structured English
 1.1 duffield & isLine
 
 RegionMapping: # Mapping between region names and their decomposed counterparts
+office = p3
 collegetown = p6
-duffield = p5
-starbucks = p3
-office = p4
+starbucks = p2
 others = p1
+duffield = p5
+between$starbucks$and$office$ = p5, p6
 
 Spec: # Specification in structured English
 # Initial conditions
@@ -54,7 +55,8 @@ Robot starts in office with false
 Visit !isLine
 
 # Define Safety
-If you are sensing isLine then do sad
+# If you are sensing isLine then do sad
+If between starbucks and office then do sad
 
 # Define Liveness
 visit starbucks unless isLine

@@ -1031,7 +1031,7 @@ class SpecEditorFrame(wx.Frame):
         # TODO: we could just pass the proj object
         self.proj.writeSpecFile()
         self.dirty = False
-        compiler = SpecCompiler(self.proj.getFilenamePrefix() + ".spec")
+        compiler = SpecCompiler().loadProject(self.proj)
 
         # Clear the log so we can start fresh grocer
         self.text_ctrl_log.Clear()
@@ -1044,8 +1044,9 @@ class SpecEditorFrame(wx.Frame):
 
         self.appendLog("Decomposing map into convex regions...\n", "BLUE")
 
+        # Decompose Regions: Note project is passed by reference to the compiler
         compiler._decompose()
-        self.proj = compiler.proj
+        #self.proj = compiler.proj
         self.decomposedRFI = compiler.parser.proj.rfi
 
         # Update workspace decomposition listbox
@@ -1056,11 +1057,6 @@ class SpecEditorFrame(wx.Frame):
         self.appendLog("Creating LTL...\n", "BLUE")
 
         spec, self.tracebackTree, self.response = compiler._writeLTLFile()
-        
-        # Add Interal Specs
-        if self.proj.compile_options["optimal"] == "twodim":
-            self.proj.internal_props.append("_l_a_c_v_1")
-            self.proj.internal_props.append("_is_infty_cost_Pre")
 
         # Add any auto-generated propositions to the list
         # TODO: what about removing old ones?
@@ -1722,5 +1718,11 @@ if __name__ == "__main__":
 
     if len(sys.argv) > 1:
         frame_1.openFile(sys.argv[1])
+
+    if len(sys.argv) > 2 and sys.argv[2] == '-c':
+        frame_1.onMenuCompile(None)
+
+    if len(sys.argv) > 3 and sys.argv[3] == '-r':
+        frame_1.onMenuSimulate(None)
 
     SpecEditor.MainLoop()

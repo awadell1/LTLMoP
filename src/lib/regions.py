@@ -898,6 +898,7 @@ class Region(object):
 
     def findPointsNear(self, face, center, distance):
         # find slope of the face line
+        face = list(face)
         x1=face[0][0]
         y1=face[0][1]
         x2=face[1][0]

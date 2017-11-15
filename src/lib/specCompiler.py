@@ -41,7 +41,9 @@ class SpecCompiler(object):
 
     def _setupSLUGS(self):
         """
-        Checks that SLUGS is compiles and imports need libraris
+        Asserts that SLUGS has been installed properly and adds slugs/tools to the python path
+        :raises Runtime Error if SLUGS has not been compiled
+        :raises Runtime Error if ltlmop_root/etc/slugs/tools does not exist
         """
         if self.proj.compile_options["synthesizer"].lower() == "slugs":
             # Check that slugs is compiled
@@ -50,10 +52,29 @@ class SpecCompiler(object):
                 # TODO: automatically compile for the user
                 raise RuntimeError("Please compile the synthesis code first.  For instructions, see etc/slugs/README.md.")
 
-            # Add the slugs tool folder to the path
-            slugs_converter_path = os.path.join(self.proj.ltlmop_root, "etc", "slugs", "tools")
-            sys.path.insert(0, slugs_converter_path)
+            # Check that the slugs/tools folder exists
+            slugs_tools_path = os.path.join(self.proj.ltlmop_root, "etc", "slugs", "tools")
+            if not os.path.exists(slugs_tools_path):
+                raise RuntimeError("Could not find the slugs/tools directory. Was SLUGS compiled correctly?")
 
+            # Add the slugs/tools folder to the python path
+            sys.path.insert(0, slugs_tools_path)
+
+    def loadProject(self, p):
+        """
+        Initalize specCompiler from a project object
+        :param p: A instance of class project
+        :return: This instance of class specComplier
+        """
+
+        # Check class of project
+        assert(isinstance(p, project.Project))
+
+        # Set p as the project
+        self.proj = p
+
+        # Return self for chaining
+        return self
 
     def loadSpec(self,spec_filename):
         """
@@ -189,12 +210,12 @@ class SpecCompiler(object):
 
         return formula
 
-
     def _writeCostFile(self):
         """
         Generates .cost file from the cost text supplied by the specification
         :return: None
         """
+        self._setupSLUGS()
         filename = self.proj.getFilenamePrefix() + ".cost"
         costFile = open(filename, 'w')
 
@@ -253,7 +274,6 @@ class SpecCompiler(object):
 
         # Write costText to file
         costFile.write("\n".join(costText))
-
 
     def _writeLTLFile(self):
 
@@ -329,7 +349,6 @@ class SpecCompiler(object):
                 LTLspec_sys = self._subDecompedRegion(LTLspec_sys, '\\bs\.')
 
             response = responses
-
         elif self.proj.compile_options["parser"] == "ltl":
             # delete comments
             text = re.sub(r"#.*$", "", text, flags=re.MULTILINE)
@@ -367,12 +386,19 @@ class SpecCompiler(object):
 
             if self.proj.compile_options["decompose"]:
                 # substitute the regions name in specs
-                for m in re.finditer(r'near (?P<rA>\w+)', text):
-                    text=re.sub(r'near (?P<rA>\w+)', "("+' or '.join(["s."+r for r in self.parser.proj.regionMapping['near$'+m.group('rA')+'$'+str(50)]])+")", text)
-                for m in re.finditer(r'within (?P<dist>\d+) (from|of) (?P<rA>\w+)', text):
-                    text=re.sub(r'within ' + m.group('dist')+' (from|of) '+ m.group('rA'), "("+' or '.join(["s."+r for r in self.parser.proj.regionMapping['near$'+m.group('rA')+'$'+m.group('dist')]])+")", text)
-                for m in re.finditer(r'between (?P<rA>\w+) and (?P<rB>\w+)', text):
-                    text=re.sub(r'between ' + m.group('rA')+' and '+ m.group('rB'),"("+' or '.join(["s."+r for r in self.parser.proj.regionMapping['between$'+m.group('rA')+'$and$'+m.group('rB')+"$"]])+")", text)
+                or_symbol = ' or '
+                prefix = "s."
+                for rA in self.proj.regionNearIter:
+                    net_region = self.parser.proj.mappedRegion('near$'+rA+'$'+str(50), prefix, or_symbol)
+                    text=re.sub(r'near (?P<rA>\w+)', net_region, text)
+
+                for rA, dist in self.proj.regionWithinIter:
+                    net_region = self.parser.proj.mappedRegion('near$'+rA+'$'+dist, prefix, or_symbol)
+                    text=re.sub(r'within ' + dist +' (from|of) '+ rA, net_region, text)
+
+                for rA, rB in self.proj.regionBetweenIter:
+                    net_region = self.parser.proj.mappedRegion('between$'+rA+'$and$'+rB+"$", prefix, or_symbol)
+                    text=re.sub(r'between ' + rA+' and '+ rB, net_region, text)
 
                 # substitute decomposed region
                 text = self._subDecompedRegion(text, '\\b')
@@ -386,7 +412,15 @@ class SpecCompiler(object):
 
                 regionList = self.proj.rfi.regionList("s.")
 
-            spec, traceback, failed, self.LTL2SpecLineNumber, self.proj.internal_props = parseEnglishToLTL.writeSpec(text, sensorList, regionList, robotPropList)
+            # Parse English to LTL
+            sensorList = deepcopy(self.proj.enabled_sensors)
+            robotPropList = self.proj.enabled_actuators + self.proj.all_customs
+            spec, traceback, failed, self.LTL2SpecLineNumber, new_internal_props = parseEnglishToLTL.writeSpec(text, sensorList, regionList, robotPropList)
+
+            # Append any truly new internal_props to the project
+            for p in new_internal_props:
+                if p not in self.proj.internal_props:
+                    self.proj.internal_props.append(p)
 
             # Abort compilation if there were any errors
             if failed:
@@ -408,8 +442,6 @@ class SpecCompiler(object):
 
             # creating the region bit encoding
             bitEncode = bitEncoding(len(regionList),numBits)
-            currBitEnc = bitEncode['current']
-            nextBitEnc = bitEncode['next']
 
             # switch to bit encodings for regions
             LTLspec_env = replaceRegionName(LTLspec_env, bitEncode, regionList)
@@ -474,9 +506,6 @@ class SpecCompiler(object):
             self.reversemapping = {self.postprocessLTL(line,sensorList,robotPropList).strip():line.strip() for line in oldspec_env + oldspec_sys}
             self.reversemapping[self.spec['Topo'].replace("\n","").replace("\t","").lstrip().rstrip("\n\t &")] = "TOPOLOGY"
 
-        #for k,v in self.reversemapping.iteritems():
-        #    print "{!r}:{!r}".format(k,v)
-
         return self.spec, traceback, response
 
     def substituteMacros(self, text):
@@ -516,8 +545,9 @@ class SpecCompiler(object):
 
         return text
 
-
     def postprocessLTL(self, text, sensorList, robotPropList):
+        """
+        """
         # TODO: make everything use this
         if self.proj.compile_options["decompose"]:
             # substitute decomposed region names
@@ -740,8 +770,6 @@ class SpecCompiler(object):
 
         return (realizable, unsat, nonTrivial, to_highlight, output)
 
-
-
     def _coreFinding(self, to_highlight, unsat, badInit):
         #returns list of formulas that cause unsatisfiability/unrealizability (based on unsat flag).
         #takes as input sentences marked for highlighting, and formula describing bad initial states
@@ -838,9 +866,6 @@ class SpecCompiler(object):
             guilty = self.unrealCores(cmd, topo, badStatesLTL, conjuncts, deadlockFlag)#returns LTL
         return guilty
 
-
-
-
     def unsatCores(self, cmd, topo, badInit, conjuncts,maxDepth,numRegions):
         #returns list of guilty LTL formulas
         #takes LTL formulas for topo, badInit and conjuncts separately because they are used in various combinations later
@@ -854,8 +879,6 @@ class SpecCompiler(object):
             self.trans, guilty = unsatCoreCases(cmd, self.propList, topo, badInit, conjuncts,maxDepth,numRegions)
 
         return guilty
-
-
 
     def unrealCores(self, cmd, topo, badStatesLTL, conjuncts, deadlockFlag):
         #returns list of guilty LTL formulas FOR THE UNREALIZABLE CASE
@@ -888,10 +911,6 @@ class SpecCompiler(object):
 
         return guilty
 
-
-
-
-
     def _getPicosatCommand(self):
         # look for picosat
 
@@ -909,10 +928,6 @@ class SpecCompiler(object):
             cmd = [os.path.join(paths[0],"picomus")]
 
         return cmd
-
-
-
-
 
     def ltlConjunctsFromBadLines(self, to_highlight, useInitFlag):
         #given the lines to be highlighted by the initial analysis, returns
