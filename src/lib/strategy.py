@@ -17,6 +17,7 @@ import collections
 import copy
 import globalConfig
 
+# TODO: make sure this works with mopsy
 # TODO: generalize notion of sets of states in a way transparent to both BDD and
 # FSA, so we don't end up unnecessarily creating and iterating over state
 # objects for things that can be done with a single BDD op
@@ -339,8 +340,8 @@ class State(object):
         # Make sure that the value makes sense
         domain = self.context.getDomainByName(prop_name)
         if domain is None:
-            if not isinstance(prop_value, bool):
-                raise ValueError("Invalid value of {!r} for proposition {!r}: can only assign boolean values to non-Domain propositions".format(prop_value, prop_name))
+            if not (prop_value is None or isinstance(prop_value, bool)):
+                raise ValueError("Invalid value of {!r} for proposition {!r}: can only assign boolean or None values to non-Domain propositions".format(prop_value, prop_name))
         else:
             if prop_value not in domain.value_mapping:
                 raise ValueError("Invalid value of {!r} for domain {!r}.  Acceptable values: {!r}".format(prop_value, prop_name, domain.value_mapping))
@@ -357,7 +358,7 @@ class State(object):
         for prop_name, prop_value in prop_assignments.iteritems():
             self.setPropValue(prop_name, prop_value)
 
-    def getLTLRepresentation(self, mark_players=True, use_next=False, include_inputs=True, swap_players=False):
+    def getLTLRepresentation(self, mark_players=True, use_next=False, include_inputs=True, include_outputs=True, swap_players=False):
         """ Returns an LTL formula representing this state.
 
             If `mark_players` is True, input propositions are prepended with
@@ -388,15 +389,21 @@ class State(object):
         else:
             env_label, sys_label = "e.", "s."
 
-        sys_state = " & ".join((decorate_prop(sys_label+p, v) for p, v in \
+        if include_outputs:
+        	sys_state = " & ".join((decorate_prop(sys_label+p, v) for p, v in \
                                 self.getOutputs(expand_domains=True).iteritems()))
 
         if include_inputs:
             env_state = " & ".join((decorate_prop(env_label+p, v) for p, v in \
                                     self.getInputs(expand_domains=True).iteritems()))
+        if include_outputs and not include_inputs:
+            return sys_state
+        elif not include_outputs and include_inputs:
+            return env_state
+        elif include_outputs and include_inputs:
             return " & ".join([env_state, sys_state])
         else:
-            return sys_state
+            print "please specified either outputs or inputs to print"
 
     def __eq__(self, other):
         return isinstance(other, State) and hash(self) == hash(other)
@@ -454,8 +461,8 @@ class StateCollection(list):
     >>> assert s2.satisfies(test_assignment)
 
     LTL is available too!
-    #>>> s2.getLTLRepresentation()
-    #'!e.nearby_animal_b1 & !e.nearby_animal_b0 & e.nearby_animal_b2 & e.low_battery & s.region_b0 & !s.region_b1 & !s.give_up & !s.experiment & s.hypothesize'
+    >>> s2.getLTLRepresentation()
+    '!e.nearby_animal_b1 & !e.nearby_animal_b0 & e.nearby_animal_b2 & e.low_battery & s.region_b0 & !s.region_b1 & !s.give_up & !s.experiment & s.hypothesize'
     """
 
     def __init__(self, *args, **kwds):
@@ -625,12 +632,18 @@ class Strategy(object):
 
         raise NotImplementedError("Use a subclass of Strategy")
 
-    def searchForOneState(self, prop_assignments, state_list=None):
+    def searchForOneState(self, prop_assignments, state_list=None, goal_id=None):
         """ Iterate through all known states (or a subset specified in `state_list`)
             and return the first one that matches `prop_assignments`.
 
             Returns None if no such state is found.  """
 
+        if goal_id is not None:
+            for state in self.searchForStates(prop_assignments, state_list):
+                if state.goal_id == goal_id:
+                    return state
+        
+        # if goal_id is not specified or cannot find state with that goal_id            
         return next(self.searchForStates(prop_assignments, state_list), None)
 
     def exportAsDotFile(self, filename, regionMapping, starting_states=None):
@@ -695,6 +708,57 @@ class Strategy(object):
 
             # Close the digraph
             f_out.write("} \n")
+        
+    def findAllCycles(self):
+
+        """
+        Returns a list of lists of states forming cycles, or an empty list if strategy is acyclic
+        """
+
+
+        visited = set()  # list of visited nodes
+        st = {}      # dictionary maintaining the minimum spanning tree rooted at each node
+        cycles = []
+        
+        
+        
+        def loop_back(st, state, ancestor):
+            """
+            Finds a path from the state to an ancestor.
+            """
+            path = []
+            while (state != ancestor):
+                if state is None:
+                    return []
+                path.append(state)
+                state = st[state]
+            path.append(state)
+            path.reverse()
+            return path
+
+        def dfs(state):
+                visited.add(state)
+                # recursively explore the connected component
+                for s in self.findTransitionableStates({}, state):
+                    if s not in visited:
+                        st[s] = state
+                        dfs(s) #recursion
+                    else:
+                        if (st[state] != s):
+                            cycle = loop_back(st, state, s)
+                            if cycle:
+                                cycles.append(cycle)
+                                
+
+        for s in self.iterateOverStates():
+            if s not in visited:
+                st[s] = None # spanning tree rooted at that state
+                # explore this state's connected component
+                dfs(s)
+        return cycles
+
+        
+
 
 def TestLoadAndDump(spec_filename):
     import project

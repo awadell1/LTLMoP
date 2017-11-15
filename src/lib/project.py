@@ -17,6 +17,7 @@ import logging
 import globalConfig
 import re
 
+
 class Project:
     """
     A project object.
@@ -30,8 +31,16 @@ class Project:
         self.regionMapping = None
         self.rfi = None
         self.specText = ""
+
+        # -------- Two Dimensional Cost ------#
         self.hasCost = False
         self.costText = ""
+        # ------------------------------------ #
+
+        # -------- two_robot_negotiation ------#
+        self.otherRobot = None
+        # ------------------------------------ #
+
         self.all_sensors = []
         self.enabled_sensors = []
         self.all_actuators = []
@@ -41,15 +50,18 @@ class Project:
         self.current_config = ""
         self.shared_data = {}  # This is for storing things like server connection objects, etc.
 
-        self.h_instance = {'init':{},'pose':None,'locomotionCommand':None,'motionControl':None,'drive':None,'sensor':{},'actuator':{}}
+        self.h_instance = {'init': {}, 'pose': None, 'locomotionCommand': None, 'motionControl': None, 'drive': None,
+                           'sensor': {}, 'actuator': {}}
 
         # Compilation options (with defaults)
         self.compile_options = {"convexify": True,  # Decompose workspace into convex regions
                                 "fastslow": False,  # Enable "fast-slow" synthesis algorithm
                                 "symbolic": False,  # Use BDDs instead of explicit-state strategies
-                                "decompose": True,  # Create regions for free space and region overlaps (required for Locative Preposition support)
-                                "use_region_bit_encoding": True, # Use a vector of "bitX" propositions to represent regions, for efficiency
-                                "synthesizer": "jtlv", # Name of synthesizer to use ("jtlv" or "slugs")
+                                "decompose": True,
+                                # Create regions for free space and region overlaps (required for Locative Preposition support)
+                                "use_region_bit_encoding": True,
+                                # Use a vector of "bitX" propositions to represent regions, for efficiency
+                                "synthesizer": "jtlv",  # Name of synthesizer to use ("jtlv" or "slugs")
                                 "optimal": "none",  # Method for applying cost to sythesis ("none" or "twoDim")
                                 "parser": "structured"}  # Spec parser: SLURP ("slurp"), structured English ("structured"), or LTL ("ltl")
 
@@ -105,7 +117,7 @@ class Project:
 
         if not rfi.readFile(regf_name):
             if not self.silent:
-                logging.error("Could not load region file %s!"  % regf_name)
+                logging.error("Could not load region file %s!" % regf_name)
                 if decomposed:
                     logging.error("Are you sure you compiled your specification?")
             return None
@@ -119,20 +131,19 @@ class Project:
         self.project_root = os.path.abspath(os.path.dirname(spec_file))
         self.project_basename, ext = os.path.splitext(os.path.basename(spec_file))
 
-
-        ### Load in the specification file
+        # Load in the specification file
         logging.info("Loading specification file %s..." % spec_file)
         spec_data = fileMethods.readFromFile(spec_file)
 
         if spec_data is None:
-            logging.warning("Failed to load specification file: %s"% spec_file)
+            logging.warning("Failed to load specification file: %s" % spec_file)
             return None
 
         try:
             self.specText = '\n'.join(spec_data['SPECIFICATION']['Spec'])
         except KeyError:
             logging.warning("Specification text undefined")
-            
+
         try:
             self.costText = '\n'.join(spec_data['SPECIFICATION']['Cost'])
             self.hasCost = True
@@ -140,22 +151,30 @@ class Project:
             self.hasCost = False
             logging.warning("Cost text undefined")
 
+        # ------ two_robot_negotiation ------#
+        try:
+            self.otherRobot = spec_data['SPECIFICATION']['OtherRobot']
+        except KeyError:
+            self.otherRobot = None
+            logging.warning("Other robot undefinded")
+        # ---------------------------------- #
+
         if 'CompileOptions' in spec_data['SETTINGS']:
             for l in spec_data['SETTINGS']['CompileOptions']:
                 if ":" not in l:
                     continue
 
-                k,v = l.split(":", 1)
+                k, v = l.split(":", 1)
                 if k.strip().lower() in ("parser", "synthesizer", "optimal"):
                     self.compile_options[k.strip().lower()] = v.strip().lower()
                 else:
                     # convert to boolean if not a parser type
                     self.compile_options[k.strip().lower()] = (v.strip().lower() in ['true', 't', '1'])
-                    
+
         # Add Internal Specs for Two Dimensional Cost
-        if self.compile_options["optimal"] == "twodim":
-            self.internal_props.append("_l_a_c_v_1")
-            self.internal_props.append("_is_infty_cost_Pre")
+        #if self.compile_options["optimal"] == "twodim":
+        #    self.internal_props.append("_l_a_c_v_1")
+        #    self.internal_props.append("_is_infty_cost_Pre")
 
         return spec_data
 
@@ -164,36 +183,50 @@ class Project:
             # Default to same filename as we loaded from
             filename = self.getFilenamePrefix() + ".spec"
         else:
-            # Update our project paths based on the new filename
-            self.project_root = os.path.dirname(os.path.abspath(filename))
-            self.project_basename, ext = os.path.splitext(os.path.basename(filename))
+            # Update the project path
+            self.__setProjectPath(filename)
 
         data = {}
 
+        # Create Dict of content to write to spec
+        fullSpecText = {'Spec': self.specText}
+
+        # Add Cost
         if self.hasCost:
-            data['SPECIFICATION'] = {"Spec": self.specText, "Cost": self.costText}
-        else:
-            data['SPECIFICATION'] = {"Spec": self.specText}
+            fullSpecText['Cost'] = self.costText
 
+        # Add Other Robot
+        if self.otherRobot is not None:
+            fullSpecText['OtherRobot'] = self.otherRobot
 
+        # Add Region Mapping
         if self.regionMapping is not None:
-            data['SPECIFICATION']['RegionMapping'] = [rname + " = " + ', '.join(rlist) for
-                                                      rname, rlist in self.regionMapping.iteritems()]
+            fullSpecText['RegionMapping'] = [rname + " = " + ', '.join(rlist) for
+                                             rname, rlist in self.regionMapping.iteritems()]
 
+        # Add Full Specifications to Project
+        data['SPECIFICATION'] = fullSpecText
+
+        # Add Sensors, Actions and Custom Propositions to Project data
         data['SETTINGS'] = {"Sensors": [p + ", " + str(int(p in self.enabled_sensors)) for p in self.all_sensors],
                             "Actions": [p + ", " + str(int(p in self.enabled_actuators)) for p in self.all_actuators],
                             "Customs": self.all_customs}
 
+        # Add Configuration Name to Project
         if self.current_config is not "":
             data['SETTINGS']['CurrentConfigName'] = self.current_config
 
-        data['SETTINGS']['CompileOptions'] = "\n".join(["%s: %s" % (k, str(v)) for k,v in self.compile_options.iteritems()])
+        # Add Compilation Options to Project
+        data['SETTINGS']['CompileOptions'] = "\n".join(
+            ["%s: %s" % (k, str(v)) for k, v in self.compile_options.iteritems()])
 
+        # Add Path to Region File
         if self.rfi is not None:
             # Save the path to the region file as relative to the spec file
             # FIXME: relpath has case sensitivity problems on OS X
             data['SETTINGS']['RegionFile'] = os.path.normpath(os.path.relpath(self.rfi.filename, self.project_root))
 
+        # Set the Comments to be included with each section of the project file
         comments = {"FILE_HEADER": "This is a specification definition file for the LTLMoP toolkit.\n" +
                                    "Format details are described at the beginning of each section below.",
                     "RegionFile": "Relative path of region description file",
@@ -202,8 +235,10 @@ class Project:
                     "Customs": "List of custom propositions",
                     "Spec": "Specification in structured English",
                     "Cost": "Transistion Weights in structured English",
+                    "OtherRobot": "The other robot in the same workspace",
                     "RegionMapping": "Mapping between region names and their decomposed counterparts"}
 
+        # Write the Project data to the file
         fileMethods.writeToFile(filename, data, comments)
 
     def mappedRegion(self, regionName, prefix, orSymbol=' | '):
@@ -325,4 +360,10 @@ class Project:
         regExp = r'between (?P<rA>\w+) and (?P<rB>\w+)'
         return iter(re.findall(regExp, self.specTextclean))
 
-
+    def __setProjectPath(self, filename):
+        """
+        Set the project_basename and project_root based on the given filename
+        :param filename: The filename of the *.spec file for the project
+        """
+        self.project_root = os.path.dirname(os.path.abspath(filename))
+        self.project_basename, ext = os.path.splitext(os.path.basename(filename))

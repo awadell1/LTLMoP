@@ -8,6 +8,10 @@ import sys
 import time
 from collections import defaultdict
 
+############ ENV ASSUMPTION LEARNING ##############
+from copy import deepcopy
+###################################################
+
 class FSAStrategy(strategy.Strategy):
     """
     An automaton object is a collection of state objects along with information about the
@@ -66,6 +70,13 @@ class FSAStrategy(strategy.Strategy):
             new_state = self.states.addNewState()
             new_state.state_id = match.group('state_id')
             new_state.goal_id = match.group('goal_id')
+
+            # Counterstrategies may have states without all proposition values
+            # defined, so we will leave them as None's.
+            # TODO: This weakens error-checking. Maybe make this only apply
+            # if specifically asked for when dealing with counter-strategies?
+            for prop_name in self.states.getPropositions(expand_domains=True):
+                new_state.setPropValue(prop_name, None)
 
             # A regex so we can iterate over "PROP = VALUE" terms
             p2 = re.compile(r"(?P<var>\w+):(?P<val>\d)", re.IGNORECASE|re.MULTILINE)
