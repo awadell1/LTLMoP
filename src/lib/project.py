@@ -15,6 +15,7 @@ import fileMethods, regions
 from numpy import *
 import logging
 import globalConfig
+import re
 
 class Project:
     """
@@ -124,7 +125,7 @@ class Project:
         spec_data = fileMethods.readFromFile(spec_file)
 
         if spec_data is None:
-            logging.warning("Failed to load specification file")
+            logging.warning("Failed to load specification file: %s"% spec_file)
             return None
 
         try:
@@ -151,7 +152,7 @@ class Project:
                     # convert to boolean if not a parser type
                     self.compile_options[k.strip().lower()] = (v.strip().lower() in ['true', 't', '1'])
                     
-        # Add Interal Specs for Two Dimensional Cost
+        # Add Internal Specs for Two Dimensional Cost
         if self.compile_options["optimal"] == "twodim":
             self.internal_props.append("_l_a_c_v_1")
             self.internal_props.append("_is_infty_cost_Pre")
@@ -205,15 +206,16 @@ class Project:
 
         fileMethods.writeToFile(filename, data, comments)
 
-    def mappedRegion(self, regionName, prefix):
+    def mappedRegion(self, regionName, prefix, orSymbol=' | '):
         """
         Returns an LTL fragment for the decomposed regions that are mapped to region
         :param regionName: The name of the region that was decomposed (str)
         :param prefix: The string to append the beginning of the region name
+        :param orSymbol: the string used to represent the Or operator
         :return: LTL Fragment that is true iff in the region
         """
 
-        return "(" + ' | '.join([prefix + x for x in self.regionMapping[regionName]]) + ")"
+        return "(" + orSymbol.join([prefix + x for x in self.regionMapping[regionName]]) + ")"
 
     def loadProject(self, spec_file):
         """
@@ -277,5 +279,50 @@ class Project:
 
         return self.getFilenamePrefix() + ('.bdd' if self.compile_options["symbolic"] else '.aut')
 
+    @property
+    def specTextclean(self):
+        """
+        Returns the specification text with all comments and empty lines removed
+        :return: A string of the clean specification
+        """
+        clean = []
+        for line in self.spec_data['SPECIFICATION']['Spec']:
+            if not line.startswith("#"):
+                clean.append(line)
+
+        return "\n".join(clean)
+
+    @property
+    def regionNearIter(self):
+        """
+        Returns an iterator over the all instances of "region near" in the specifcation
+        :return: A iterator of type MatchObject with the region near in the "rA" group
+        """
+        regExp = r'near (?P<rA>\w+)'
+        return iter(re.findall(regExp, self.specTextclean))
+
+    @property
+    def regionWithinIter(self):
+        """
+        Returns an iterator over the all instances of "within distance from a region" in the specifcation
+        :return: A iterator of type MatchObject with the region within in the "rA" group and the distance
+                in the "dist" group
+        """
+        regExp = r'within (?P<dist>\d+) (from|of) (?P<rA>\w+)'
+        fullIter = re.findall(regExp, self.specTextclean)
+        regionIter = []
+        for rA, d, dist in fullIter:
+            regionIter.append((rA, dist))
+
+        return iter(regionIter)
+
+    @property
+    def regionBetweenIter(self):
+        """
+        Returns an iterator over all instances of "region between" in the specification
+        :return: An iterator of type MatchObject with the two regions as the "rA" and "rB" groups
+        """
+        regExp = r'between (?P<rA>\w+) and (?P<rB>\w+)'
+        return iter(re.findall(regExp, self.specTextclean))
 
 

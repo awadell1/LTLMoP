@@ -50,20 +50,20 @@ class parseLP:
             
             # get all regions that need to find "region near"
             # the items in the list are tuple with region name and distance from the region boundary, default value is 50
-            for m in re.finditer(r'near (?P<rA>\w+)', spec):
-                if m.group("rA") not in self.regionNear:
-                    self.regionNear.append((m.group("rA"),50))
+            for r in self.proj.regionNearIter:
+                if r not in self.regionNear:
+                    self.regionNear.append((r, parseLP.defaultNearDistance))
                     
             # find "within distance from a region" is just special case of find "region near"
-            for m in re.finditer(r'within (?P<dist>\d+) (from|of) (?P<rA>\w+)', spec):
-                if m.group("rA") not in self.regionNear:
-                    self.regionNear.append((m.group("rA"),int(m.group("dist"))))
+            for r, dist in self.proj.regionWithinIter:
+                if r not in self.regionNear:
+                    self.regionNear.append((r, dist))
                     
             # get all regions that need to find "region between"
             # the items in the list are tuple with two region names       
-            for m in re.finditer(r'between (?P<rA>\w+) and (?P<rB>\w+)', spec):
-                if (m.group("rA"),m.group("rB")) not in self.regionBetween and (m.group("rB"),m.group("rA")) not in self.regionBetween:
-                    self.regionBetween.append((m.group("rA"),m.group("rB")))
+            for rA, rB in self.proj.regionBetweenIter:
+                if (rA,rB) not in self.regionBetween and (rB, rA) not in self.regionBetween:
+                    self.regionBetween.append((rA, rB))
                 
             # generate new regions
             self.generateNewRegion()
