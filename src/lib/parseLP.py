@@ -13,40 +13,39 @@ class parseLP:
     """
     A parser to parse the locative prepositions in specification
     """
+
+    defaultNearDistance = 50
+
     def __init__(self):
-        
-        pass
+
+        self.proj = project.Project()
+        self.regionBetween = []
+        self.regionNear = []
+        self.boundaryRegion = None
+
 
     def main(self,argv):
         """ Main function; run automatically when called from command-line """
 
         spec_file = argv
-        self.regionNear = []
-        self.regionBetween = []
-        defaultNearDistance = 50
 
         # load data
-        self.proj = project.Project()
         self.proj.setSilent(True)
         self.proj.loadProject(spec_file)
         
         if self.proj.compile_options['decompose']:
             # we will do the decomposition
             # Look for a defined boundary region, and set it aside if available
-            self.boundaryRegion = None
-            for region in self.proj.rfi.regions:
-                if region.name.lower() == 'boundary':
-                    self.boundaryRegion = region
-                    self.proj.rfi.regions.remove(region)
-                    break
+            self.boundaryRegion = self.proj.rfi.boundaryRegion
+            self.proj.rfi.regions.remove(self.boundaryRegion)
         
             # TODO: If not defined, use the minimum bounding polygon by default
             if self.boundaryRegion is None:
                 print "ERROR: You need to define a boundary region (just create a region named 'boundary' in RegionEditor)"
                 return
 
-            # turn list of string into one string
-            spec = "\n".join([line for line in self.proj.spec_data['SPECIFICATION']['Spec'] if not line.startswith("#")])
+            # Get a clean version of the project specification
+            spec = self.proj.specTextclean
             
             # get all regions that need to find "region near"
             # the items in the list are tuple with region name and distance from the region boundary, default value is 50

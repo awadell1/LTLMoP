@@ -465,6 +465,18 @@ class RegionFileInterface(object):
         """
         return [prefix + x.name for x in self.regions]
 
+    @property
+    def boundaryRegion(self):
+        """
+        Returns the boundary region
+        :return: An instance of class Region with the name "boundary" or None if no matching regions are found
+        """
+        for r in self.regions:
+            if r.isBoundary():
+                return r
+
+        # No Boundary region found
+        return None
    
 ############################################################
  
