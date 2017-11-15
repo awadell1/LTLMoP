@@ -35,16 +35,13 @@ isLine, 1
 Cost: # Transistion Weights in structured English
 0 1 >
 2.0 collegetown & isSnow
-1.0 duffield & !isLine
-1.1 duffield & isLine
 
 RegionMapping: # Mapping between region names and their decomposed counterparts
-office = p3
+office = p4
 collegetown = p6
-starbucks = p2
+starbucks = p3
 others = p1
 duffield = p5
-between$starbucks$and$office$ = p5, p6
 
 Spec: # Specification in structured English
 # Initial conditions
@@ -56,7 +53,6 @@ Visit !isLine
 
 # Define Safety
 # If you are sensing isLine then do sad
-If between starbucks and office then do sad
 
 # Define Liveness
 visit starbucks unless isLine
