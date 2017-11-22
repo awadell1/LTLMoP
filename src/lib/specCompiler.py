@@ -20,6 +20,7 @@ import strategy
 from copy import deepcopy
 from cores.coreUtils import *
 import handlerSubsystem
+from SpecParser.Structured import StructuredSpec
 
 from asyncProcesses import AsynchronousProcessThread
 
@@ -169,9 +170,9 @@ class SpecCompiler(object):
         self.proj.writeSpecFile()
 
     def _writeSMVFile(self):
-        numRegions = len(self.rfi.regions)
+        numRegions = self.rfi.regionCount
         sensorList = self.proj.enabled_sensors
-        robotPropList = self.proj.enabled_actuators + self.proj.all_customs + self.proj.internal_props
+        robotPropList = self.proj.robotPropositions
 
         # Add in regions as robot outputs
         if self.proj.compile_options["use_region_bit_encoding"]:
@@ -278,10 +279,9 @@ class SpecCompiler(object):
 
         self.LTL2SpecLineNumber = None
 
-        #regionList = [r.name for r in self.parser.proj.rfi.regions]
         regionList = self.proj.rfi.regionList()
         sensorList = deepcopy(self.proj.enabled_sensors)
-        robotPropList = self.proj.enabled_actuators + self.proj.all_customs
+        robotPropList = self.proj.robotPropositions
 
         text = self.proj.specText
 
@@ -381,45 +381,19 @@ class SpecCompiler(object):
 
             traceback = [] # HACK: needs to be something other than None
         elif self.proj.compile_options["parser"] == "structured":
-            import parseEnglishToLTL
+            # Initialize Parser Object
+            spec_parser = StructuredSpec(self.proj.specText,
+                                 self.proj.robotPropositions,
+                                 self.proj.enabled_sensors,
+                                 self.rfi,
+                                 self.proj.regionMapping,
+                                 self.proj.compile_options["decompose"])
 
-            if self.proj.compile_options["decompose"]:
-                # substitute the regions name in specs
-                or_symbol = ' or '
-                prefix = "s."
-                for rA in self.proj.regionNearIter:
-                    net_region = self.parser.proj.mappedRegion('near$'+rA+'$'+str(50), prefix, or_symbol)
-                    text=re.sub(r'near (?P<rA>\w+)', net_region, text)
+            # Parse Specification
+            spec, traceback, failed = spec_parser.parse()
 
-                for rA, dist in self.proj.regionWithinIter:
-                    net_region = self.parser.proj.mappedRegion('near$'+rA+'$'+dist, prefix, or_symbol)
-                    text=re.sub(r'within ' + dist +' (from|of) '+ rA, net_region, text)
-
-                for rA, rB in self.proj.regionBetweenIter:
-                    net_region = self.parser.proj.mappedRegion('between$'+rA+'$and$'+rB+"$", prefix, or_symbol)
-                    text=re.sub(r'between ' + rA+' and '+ rB, net_region, text)
-
-                # substitute decomposed region
-                text = self._subDecompedRegion(text, '\\b')
-
-                regionList = self.parser.proj.rfi.regionList("s.")
-            else:
-                for r in self.proj.rfi.regions:
-                    if not (r.isObstacle or r.isBoundary()):
-                        # TODO Replace with call to mappedRegion?
-                        text = re.sub('\\b' + r.name + '\\b', "s."+r.name, text)
-
-                regionList = self.proj.rfi.regionList("s.")
-
-            # Parse English to LTL
-            sensorList = deepcopy(self.proj.enabled_sensors)
-            robotPropList = self.proj.enabled_actuators + self.proj.all_customs
-            spec, traceback, failed, self.LTL2SpecLineNumber, new_internal_props = parseEnglishToLTL.writeSpec(text, sensorList, regionList, robotPropList)
-
-            # Append any truly new internal_props to the project
-            for p in new_internal_props:
-                if p not in self.proj.internal_props:
-                    self.proj.internal_props.append(p)
+            # Update Propositions
+            self.proj.internal_props = spec_parser.internalProp
 
             # Abort compilation if there were any errors
             if failed:
@@ -1177,9 +1151,9 @@ class SpecCompiler(object):
     def _subDecompedRegion(self, fragment, prefix=""):
         """
         Replaces the names of regions with their decomposed versions
-        :param fragment: The Ltl fragment conatining region names to be replaced
+        :param fragment: The LTL fragment containing region names to be replaced
         :param prefix: Prepend name with prefix string when searching
-        :return: The ltl fragement with all of the regions replace with their decomposed versions
+        :return: The ltl fragment with all of the regions replace with their decomposed versions
         """
         # substitute decomposed region names
         for r in self.proj.rfi.regions:

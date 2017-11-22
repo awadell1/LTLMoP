@@ -21,6 +21,8 @@ CurrentConfigName:
 Basic Simulation
 
 Customs: # List of custom propositions
+_l_a_c_v_1
+_is_infty_cost_Pre
 
 RegionFile: # Relative path of region description file
 oneRobot.regions

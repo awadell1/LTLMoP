@@ -1123,7 +1123,6 @@ class SpecEditorFrame(wx.Frame):
 
         # Decompose Regions: Note project is passed by reference to the compiler
         compiler._decompose()
-        #self.proj = compiler.proj
         self.decomposedRFI = compiler.parser.proj.rfi
 
         # Update workspace decomposition listbox

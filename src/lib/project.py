@@ -17,7 +17,6 @@ import logging
 import globalConfig
 import re
 
-
 class Project:
     """
     A project object.
@@ -170,11 +169,6 @@ class Project:
                 else:
                     # convert to boolean if not a parser type
                     self.compile_options[k.strip().lower()] = (v.strip().lower() in ['true', 't', '1'])
-
-        # Add Internal Specs for Two Dimensional Cost
-        #if self.compile_options["optimal"] == "twodim":
-        #    self.internal_props.append("_l_a_c_v_1")
-        #    self.internal_props.append("_is_infty_cost_Pre")
 
         return spec_data
 
@@ -367,3 +361,11 @@ class Project:
         """
         self.project_root = os.path.dirname(os.path.abspath(filename))
         self.project_basename, ext = os.path.splitext(os.path.basename(filename))
+
+    @property
+    def robotPropositions(self):
+        """
+        Get all of the internal propsitions for the robot
+        :return:
+        """
+        return self.enabled_actuators + self.all_customs + self.internal_props

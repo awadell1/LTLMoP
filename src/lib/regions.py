@@ -477,6 +477,13 @@ class RegionFileInterface(object):
 
         # No Boundary region found
         return None
+
+    @property
+    def regionCount(self):
+        """
+        :return: The total number of regions
+        """
+        return len(self.regions)
    
 ############################################################
  
