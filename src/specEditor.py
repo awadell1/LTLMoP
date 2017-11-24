@@ -13,6 +13,7 @@ import re, sys, os, subprocess
 import wx, wx.richtext, wx.stc
 import threading
 import time
+import argparse
 
 
 # Climb the tree to find out where we are
@@ -1942,7 +1943,19 @@ if __name__ == "__main__":
     SpecEditor.SetTopWindow(frame_1)
     frame_1.Show()
 
-    if len(sys.argv) > 1:
-        frame_1.openFile(sys.argv[1])
+    # Define Command line Arguments
+    arg_parser = argparse.ArgumentParser(description='Tool for synthesizing provably correct controllers')
+    arg_parser.add_argument('-c', '--compile', action='store_true')
+    arg_parser.add_argument('-s', '--simulate', action='store_true')
+    arg_parser.add_argument('filename', nargs='?', default=None)
+    args = arg_parser.parse_args()
+
+    # Parse Arguments
+    if args.filename is not None:
+        frame_1.openFile(args.filename)
+    if args.compile:
+        frame_1.onMenuCompile(None)
+    if args.simulate:
+        frame_1.onMenuSimulate(None)
 
     SpecEditor.MainLoop()
