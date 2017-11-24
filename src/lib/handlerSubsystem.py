@@ -559,9 +559,9 @@ class HandlerSubsystem:
                 for handler_type_class in ht.getAllHandlerTypeClass():
                     if handler_type_class in robot.handlers:
                         h = self.prepareHandler(robot.handlers[handler_type_class])
-                    # if this is a init handler, set the shared_data
-                    if handler_type_class == ht.InitHandler:
-                        self.executor.proj.shared_data.update(h.getSharedData())
+                        # if this is a init handler, set the shared_data
+                        if handler_type_class == ht.InitHandler:
+                            self.executor.proj.shared_data.update(h.getSharedData())
             else:
                 # this is a non-main robot
                 h = self.prepareHandler(robot.getHandlerOfRobot(ht.InitHandler))

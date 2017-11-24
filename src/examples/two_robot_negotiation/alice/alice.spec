@@ -13,15 +13,15 @@ parser: structured
 symbolic: False
 use_region_bit_encoding: True
 multi_robot_mode: negotiation
-cooperative_gr1: False
+cooperative_gr1: True
 fastslow: False
 only_realizability: False
-recovery: False
+recovery: True
 include_heading: False
 winning_livenesses: False
-synthesizer: jtlv
+synthesizer: slugs
 decompose: True
-interactive: False
+interactive: True
 
 CurrentConfigName:
 aliceWithBobSensor

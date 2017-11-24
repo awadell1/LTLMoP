@@ -9,16 +9,21 @@ pickup, 1
 deliver, 1
 
 CompileOptions:
-synthesizer: jtlv
-neighbour_robot: False
-fastslow: False
-include_heading: False
+neighbour_robot: True
 convexify: False
-recovery: False
 parser: structured
 symbolic: False
-decompose: True
 use_region_bit_encoding: True
+multi_robot_mode: negotiation
+cooperative_gr1: True
+fastslow: False
+only_realizability: False
+recovery: True
+include_heading: False
+winning_livenesses: False
+synthesizer: slugs
+decompose: True
+interactive: True
 
 CurrentConfigName:
 BasicSim
@@ -37,6 +42,8 @@ betweenClasses, 1
 
 
 ======== SPECIFICATION ========
+
+GlobalSensors: # Sensors accessible by all robots
 
 OtherRobot: # The other robot in the same workspace
 

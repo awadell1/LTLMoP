@@ -14,15 +14,18 @@ parser: structured
 symbolic: False
 use_region_bit_encoding: True
 multi_robot_mode: negotiation
-cooperative_gr1: False
+cooperative_gr1: True
 fastslow: True
 only_realizability: False
-recovery: False
+recovery: True
 include_heading: False
 winning_livenesses: False
 synthesizer: slugs
 decompose: True
 interactive: False
+
+CurrentConfigName:
+Untitled configuration
 
 Customs: # List of custom propositions
 

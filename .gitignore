@@ -30,3 +30,5 @@ src/lib/cores/picosat*
 *.bdd
 *.autWinPos
 *.addWinPos
+
+*.sublime-*

@@ -9,8 +9,21 @@ deliver, 1
 pick_up, 1
 
 CompileOptions:
+neighbour_robot: False
 convexify: False
+parser: structured
+symbolic: False
+use_region_bit_encoding: True
+multi_robot_mode: negotiation
+cooperative_gr1: False
 fastslow: False
+only_realizability: False
+recovery: True
+include_heading: False
+winning_livenesses: False
+synthesizer: jtlv
+decompose: True
+interactive: False
 
 CurrentConfigName:
 BasicSim
@@ -30,6 +43,10 @@ jim_order, 1
 
 
 ======== SPECIFICATION ========
+
+GlobalSensors: # Sensors accessible by all robots
+
+OtherRobot: # The other robot in the same workspace
 
 RegionMapping: # Mapping between region names and their decomposed counterparts
 r4 = p3

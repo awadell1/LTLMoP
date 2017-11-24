@@ -29,7 +29,7 @@ basicSim
 Customs: # List of custom propositions
 
 RegionFile: # Relative path of region description file
-../threeCorridorsShort.regions
+../threeCorridors.regions
 
 Sensors: # List of sensor propositions and their state (enabled = 1, disabled = 0)
 bob_hallwayTop, 1
@@ -53,18 +53,21 @@ OtherRobot: # The other robot in the same workspace
 bob
 
 RegionMapping: # Mapping between region names and their decomposed counterparts
-emergencyExit = p11
-hallwayBottom = p8
+emergencyExit = p14
+hallwayBottomL = p11
+hallwayCentralR = p8
 office = p4
+hallwayCentralL = p9
 storageTop = p1
-storageBottom = p2
-hallwayTop = p6
-library = p5
-reception = p3
-hallwayCentral = p7
-atrium = p13
-cafe = p12
 others = 
+hallwayTopR = p6
+library = p5
+hallwayTopL = p7
+reception = p3
+storageBottom = p2
+atrium = p16
+cafe = p15
+hallwayBottomR = p10
 
 Spec: # Specification in structured English
 Robot starts in library

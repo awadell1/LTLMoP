@@ -9,10 +9,21 @@ pickup, 1
 drop, 1
 
 CompileOptions:
+neighbour_robot: True
 convexify: True
 parser: structured
+symbolic: False
+use_region_bit_encoding: True
+multi_robot_mode: negotiation
+cooperative_gr1: True
 fastslow: False
+only_realizability: False
+recovery: True
+include_heading: False
+winning_livenesses: False
+synthesizer: slugs
 decompose: True
+interactive: True
 
 CurrentConfigName:
 simulation
@@ -30,6 +41,10 @@ Sensors: # List of sensor propositions and their state (enabled = 1, disabled = 
 
 
 ======== SPECIFICATION ========
+
+GlobalSensors: # Sensors accessible by all robots
+
+OtherRobot: # The other robot in the same workspace
 
 RegionMapping: # Mapping between region names and their decomposed counterparts
 others = p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16

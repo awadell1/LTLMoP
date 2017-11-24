@@ -7,16 +7,24 @@
 Actions: # List of action propositions and their state (enabled = 1, disabled = 0)
 
 CompileOptions:
+neighbour_robot: True
 convexify: True
 parser: structured
 symbolic: False
 use_region_bit_encoding: True
-synthesizer: jtlv
+multi_robot_mode: negotiation
+cooperative_gr1: True
 fastslow: False
+only_realizability: False
+recovery: True
+include_heading: False
+winning_livenesses: False
+synthesizer: slugs
 decompose: True
+interactive: True
 
 CurrentConfigName:
-aliceNao
+alice
 
 Customs: # List of custom propositions
 
@@ -35,6 +43,8 @@ bob_square, 1
 
 
 ======== SPECIFICATION ========
+
+GlobalSensors: # Sensors accessible by all robots
 
 OtherRobot: # The other robot in the same workspace
 bob
