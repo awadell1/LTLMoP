@@ -63,6 +63,9 @@ class ExecutorStrategyExtensions(object):
         # TODO: set current state so that we don't need to call from_state
         next_states = self.strategy.findTransitionableStates(sensor_state, from_state= self.strategy.current_state)
 
+        if self.proj.compile_options['neighbour_robot'] and self.proj.compile_options["multi_robot_mode"] == "negotiation":
+            self.env_assumption_hold = self.simple_check_envTrans_violation()
+
         # Make sure we have somewhere to go
         if len(next_states) == 0:
             # Well darn!

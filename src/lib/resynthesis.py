@@ -66,7 +66,7 @@ class ExecutorResynthesisExtensions(object):
         #self.exchangedSpec = False #track if we have exchanged spec with the other robot
         self.exchangedSpec = {} #track if we have exchanged spec with the other robot
 
-        self.disableEnvChar = None #track if we are prioritized. False: env Characterization enabled. True: env Char disabled. None: no negotiation
+        self.disableEnvChar = False #track if we are prioritized. False: env Characterization enabled. True: env Char disabled. None: no negotiation
         self.lastSensorState  = None
         self.negotiationStatus= None #track who is appending spec
         self.receivedSpec = {} #track if we have recevied request from the other robot
@@ -551,8 +551,8 @@ class ExecutorResynthesisExtensions(object):
         ltlmop_logger.log(4, "self.exchangedSpec:" + str(self.exchangedSpec))
         ltlmop_logger.log(4, "self.receivedSpec:" + str(self.receivedSpec))
 
-
-        if (not self.exchangedSpec[conflictingRobots[0]] or not self.receivedSpec[conflictingRobots[0]]):
+        # Hack need to wait for other robot to clear violation before aborting
+        if (not self.exchangedSpec[conflictingRobots[0]] or not self.receivedSpec[conflictingRobots[0]]) or True:
             # make resynthesis with recovery
             #self.recovery = True
             #self.proj.compile_options['recovery'] = True
@@ -653,7 +653,8 @@ class ExecutorResynthesisExtensions(object):
             if not len(conflictingRobots) == 1:
                 ltlmop_logger.error('Currently not support negotiation with more than two robots!' + str(conflictingRobots))
 
-            if (not self.exchangedSpec[conflictingRobots[0]] or not self.receivedSpec[conflictingRobots[0]]):
+            # Hack: Need to wait for other robot to clear violation before aborting
+            if (not self.exchangedSpec[conflictingRobots[0]] or not self.receivedSpec[conflictingRobots[0]]) or True:
                 # also reset env characterization
                 self.resetEnvCharacterization() # reset env characterization both ways
 
@@ -806,6 +807,8 @@ class ExecutorResynthesisExtensions(object):
                                         # exchange spec
                                         realizable = self.appendSpecFromEnvRobots()
                                         self.resumeMotionAndAction()
+                                    else:
+                                        return
 
                                     # if ((not self.exchangedSpec[conflictingRobots[0]]) or (not self.sentSpec[conflictingRobots[0]] and self.receivedSpec[conflictingRobots[0]])) and otherRobotViolationTimeStamp < self.violationTimeStamp:
                                     #     # exchange spec

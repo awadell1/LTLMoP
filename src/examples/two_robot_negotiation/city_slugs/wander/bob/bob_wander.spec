@@ -44,6 +44,8 @@ alice_policeStation1, 1
 
 ======== SPECIFICATION ========
 
+GlobalSensors: # Sensors accessible by all robots
+
 OtherRobot: # The other robot in the same workspace
 alice
 
