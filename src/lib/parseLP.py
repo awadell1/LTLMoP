@@ -13,57 +13,56 @@ class parseLP:
     """
     A parser to parse the locative prepositions in specification
     """
+
+    defaultNearDistance = 50
+
     def __init__(self):
-        
-        pass
+
+        self.proj = project.Project()
+        self.regionBetween = []
+        self.regionNear = []
+        self.boundaryRegion = None
+
 
     def main(self,argv):
         """ Main function; run automatically when called from command-line """
 
         spec_file = argv
-        self.regionNear = []
-        self.regionBetween = []
-        defaultNearDistance = 50
 
         # load data
-        self.proj = project.Project()
         self.proj.setSilent(True)
         self.proj.loadProject(spec_file)
         
         if self.proj.compile_options['decompose']:
             # we will do the decomposition
             # Look for a defined boundary region, and set it aside if available
-            self.boundaryRegion = None
-            for region in self.proj.rfi.regions:
-                if region.name.lower() == 'boundary':
-                    self.boundaryRegion = region
-                    self.proj.rfi.regions.remove(region)
-                    break
+            self.boundaryRegion = self.proj.rfi.boundaryRegion
+            self.proj.rfi.regions.remove(self.boundaryRegion)
         
             # TODO: If not defined, use the minimum bounding polygon by default
             if self.boundaryRegion is None:
                 print "ERROR: You need to define a boundary region (just create a region named 'boundary' in RegionEditor)"
                 return
 
-            # turn list of string into one string
-            spec = "\n".join([line for line in self.proj.spec_data['SPECIFICATION']['Spec'] if not line.startswith("#")])
+            # Get a clean version of the project specification
+            spec = self.proj.specTextclean
             
             # get all regions that need to find "region near"
             # the items in the list are tuple with region name and distance from the region boundary, default value is 50
-            for m in re.finditer(r'near (?P<rA>\w+)', spec):
-                if m.group("rA") not in self.regionNear:
-                    self.regionNear.append((m.group("rA"),50))
+            for r in self.proj.regionNearIter:
+                if r not in self.regionNear:
+                    self.regionNear.append((r, parseLP.defaultNearDistance))
                     
             # find "within distance from a region" is just special case of find "region near"
-            for m in re.finditer(r'within (?P<dist>\d+) (from|of) (?P<rA>\w+)', spec):
-                if m.group("rA") not in self.regionNear:
-                    self.regionNear.append((m.group("rA"),int(m.group("dist"))))
+            for r, dist in self.proj.regionWithinIter:
+                if r not in self.regionNear:
+                    self.regionNear.append((r, dist))
                     
             # get all regions that need to find "region between"
             # the items in the list are tuple with two region names       
-            for m in re.finditer(r'between (?P<rA>\w+) and (?P<rB>\w+)', spec):
-                if (m.group("rA"),m.group("rB")) not in self.regionBetween and (m.group("rB"),m.group("rA")) not in self.regionBetween:
-                    self.regionBetween.append((m.group("rA"),m.group("rB")))
+            for rA, rB in self.proj.regionBetweenIter:
+                if (rA,rB) not in self.regionBetween and (rB, rA) not in self.regionBetween:
+                    self.regionBetween.append((rA, rB))
                 
             # generate new regions
             self.generateNewRegion()

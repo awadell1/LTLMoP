@@ -14,6 +14,7 @@ import os, sys
 import fileMethods, regions
 from numpy import *
 import globalConfig
+import re
 
 # logger for ltlmop
 import logging
@@ -36,6 +37,8 @@ class Project:
         self.otherRobot = []
         self.global_sensors = []
         # ------------------------------------ #
+        self.hasCost = False
+        self.costText = ""
         self.all_sensors = []
         self.enabled_sensors = []
         self.all_actuators = []
@@ -48,21 +51,24 @@ class Project:
         self.h_instance = {'init':{},'pose':None,'locomotionCommand':None,'motionControl':None,'drive':None,'sensor':{},'actuator':{}}
 
         # Compilation options (with defaults)
-        self.compile_options = {"convexify": True,  # Decompose workspace into convex regions
-                                "fastslow": False,  # Enable "fast-slow" synthesis algorithm
-                                "symbolic": False,  # Use BDDs instead of explicit-state strategies
-                                "interactive": False, # Use interactive Strategy in SLUGS
-                                "only_realizability": False, # only check if the spec is realizable or not
-                                "decompose": True,  # Create regions for free space and region overlaps (required for Locative Preposition support)
-                                "use_region_bit_encoding": True, # Use a vector of "bitX" propositions to represent regions, for efficiency
-                                "synthesizer": "jtlv", # Name of synthesizer to use ("jtlv" or "slugs")
-                                "parser": "structured",  # Spec parser: SLURP ("slurp"), structured English ("structured"), or LTL ("ltl")
-                                "recovery": False, # adding recovery transitions in synthesis is set to be false
-                                "winning_livenesses": False, # outputs each sysGoal conjuncted with the set of winning positions
-                                "cooperative_gr1": False, # synthesizing aut that phi_e is always satisfied.
-                                "neighbour_robot": False, #if we will include neighbour robot LTL in the spec
-                                "include_heading": False, #if we include the heading information of the other robot in the specification
-                                "multi_robot_mode":"negotiation"} # Name of mode ("negotiation" or "patching")
+        self.compile_options = {
+                                "convexify": True,                      # Decompose workspace into convex regions
+                                "cooperative_gr1": False,               # synthesizing aut that phi_e is always satisfied.
+                                "decompose": True,                      # Create regions for free space and region overlaps (required for Locative Preposition support)
+                                "fastslow": False,                      # Enable "fast-slow" synthesis algorithm
+                                "include_heading": False,               # if we include the heading information of the other robot in the specification
+                                "interactive": False,                   # Use interactive Strategy in SLUGS
+                                "multi_robot_mode":"negotiation",       # Name of mode ("negotiation" or "patching")
+                                "neighbour_robot": False,               # if we will include neighbour robot LTL in the spec
+                                "only_realizability": False,            # only check if the spec is realizable or not
+                                "optimal": "none",                      # Method for applying cost to sythesis ("none" or "twoDim")
+                                "parser": "structured",                 # Spec parser: SLURP ("slurp"), structured English ("structured"), or LTL ("ltl")
+                                "recovery": False,                      # adding recovery transitions in synthesis is set to be false
+                                "symbolic": False,                      # Use BDDs instead of explicit-state strategies
+                                "synthesizer": "jtlv",                  # Name of synthesizer to use ("jtlv" or "slugs")
+                                "use_region_bit_encoding": True,        # Use a vector of "bitX" propositions to represent regions, for efficiency
+                                "winning_livenesses": False,            # outputs each sysGoal conjuncted with the set of winning positions
+                                }
 
         self.ltlmop_root = globalConfig.get_ltlmop_root()
 
@@ -136,13 +142,20 @@ class Project:
         spec_data = fileMethods.readFromFile(spec_file)
 
         if spec_data is None:
-            ltlmop_logger.warning("Failed to load specification file")
+            ltlmop_logger.warning("Failed to load specification file: %s"% spec_file)
             return None
 
         try:
             self.specText = '\n'.join(spec_data['SPECIFICATION']['Spec'])
         except KeyError:
             ltlmop_logger.warning("Specification text undefined")
+            
+        try:
+            self.costText = '\n'.join(spec_data['SPECIFICATION']['Cost'])
+            self.hasCost = self.costText != ''
+        except KeyError:
+            self.hasCost = False
+            ltlmop_logger.warning("Cost text undefined")
 
         # ------ two_robot_negotiation ------#
         try:
@@ -162,40 +175,59 @@ class Project:
                     continue
 
                 k,v = l.split(":", 1)
-                if k.strip().lower() in ("parser", "synthesizer", "multi_robot_mode"):
+                if k.strip().lower() in ("parser", "synthesizer", "multi_robot_mode", "optimal"):
                     self.compile_options[k.strip().lower()] = v.strip().lower()
                 else:
                     # convert to boolean if not a parser type
                     self.compile_options[k.strip().lower()] = (v.strip().lower() in ['true', 't', '1'])
+                    
+        # Add Internal Specs for Two Dimensional Cost
+        if self.compile_options["optimal"] == "twodim":
+            self.internal_props.append("_l_a_c_v_1")
+            self.internal_props.append("_is_infty_cost_Pre")
 
         return spec_data
 
     def writeSpecFile(self, filename=None):
         if filename is None:
             # Default to same filename as we loaded from
-            filename = os.path.join(self.project_root, self.project_basename + ".spec")
+            filename = self.getFilenamePrefix() + ".spec"
         else:
             # Update our project paths based on the new filename
             self.project_root = os.path.dirname(os.path.abspath(filename))
             self.project_basename, ext = os.path.splitext(os.path.basename(filename))
 
         data = {}
-        
+
+        # Add Specification Text
+        data['SPECIFICATION'] = {}
+        data['SPECIFICATION']['Spec'] = self.specText
+
+
         # ----------- two_robot_negotiation ---------- #
-        data['SPECIFICATION'] = {"OtherRobot": self.otherRobot, "GlobalSensors": self.global_sensors, "Spec": self.specText}
+        data['SPECIFICATION']['OtherRobot'] = self.otherRobot
+        data['SPECIFICATION']['GlobalSensors'] = self.global_sensors
         # -------------------------------------------- #
         
+        # Add Cost
+        if self.hasCost:
+            data['SPECIFICATION']['Cost'] = self.costText
+
+        # Add Region Mapping
         if self.regionMapping is not None:
             data['SPECIFICATION']['RegionMapping'] = [rname + " = " + ', '.join(rlist) for
                                                       rname, rlist in self.regionMapping.iteritems()]
 
+        # Add Sensors
         data['SETTINGS'] = {"Sensors": [p + ", " + str(int(p in self.enabled_sensors)) for p in self.all_sensors if not (p.endswith('_rc') or p.endswith('_ac')) or p.startswith(tuple(self.otherRobot))],  #TODO: don't need this later
                             "Actions": [p + ", " + str(int(p in self.enabled_actuators)) for p in self.all_actuators],
                             "Customs": self.all_customs}
 
+        # Add Simulation Configuration
         if self.current_config is not "":
             data['SETTINGS']['CurrentConfigName'] = self.current_config
 
+        # Add Compile Options
         data['SETTINGS']['CompileOptions'] = "\n".join(["%s: %s" % (k, str(v)) for k,v in self.compile_options.iteritems()])
 
         if self.rfi is not None:
@@ -203,19 +235,32 @@ class Project:
             # FIXME: relpath has case sensitivity problems on OS X
             data['SETTINGS']['RegionFile'] = os.path.normpath(os.path.relpath(self.rfi.filename, self.project_root))
 
-        comments = {"FILE_HEADER": "This is a specification definition file for the LTLMoP toolkit.\n" +
+        comments = {
+                    "FILE_HEADER": "This is a specification definition file for the LTLMoP toolkit.\n" +
                                    "Format details are described at the beginning of each section below.",
-                    "RegionFile": "Relative path of region description file",
-                    "Sensors": "List of sensor propositions and their state (enabled = 1, disabled = 0)",
                     "Actions": "List of action propositions and their state (enabled = 1, disabled = 0)",
+                    "Cost": "Transistion Weights in structured English",
                     "Customs": "List of custom propositions",
-                    "Spec": "Specification in structured English",
-                    "OtherRobot": "The other robot in the same workspace",
                     "GlobalSensors": "Sensors accessible by all robots",
-                    "RegionMapping": "Mapping between region names and their decomposed counterparts"}
+                    "OtherRobot": "The other robot in the same workspace",
+                    "RegionFile": "Relative path of region description file",
+                    "RegionMapping": "Mapping between region names and their decomposed counterparts",
+                    "Sensors": "List of sensor propositions and their state (enabled = 1, disabled = 0)",
+                    "Spec": "Specification in structured English"
+                    }
 
         fileMethods.writeToFile(filename, data, comments)
 
+    def mappedRegion(self, regionName, prefix, orSymbol=' | '):
+        """
+        Returns an LTL fragment for the decomposed regions that are mapped to region
+        :param regionName: The name of the region that was decomposed (str)
+        :param prefix: The string to append the beginning of the region name
+        :param orSymbol: the string used to represent the Or operator
+        :return: LTL Fragment that is true iff in the region
+        """
+
+        return "(" + orSymbol.join([prefix + x for x in self.regionMapping[regionName]]) + ")"
 
     def loadProject(self, spec_file):
         """
@@ -310,5 +355,50 @@ class Project:
         else:
             return self.getFilenamePrefix() +'.aut'
 
+    @property
+    def specTextclean(self):
+        """
+        Returns the specification text with all comments and empty lines removed
+        :return: A string of the clean specification
+        """
+        clean = []
+        for line in self.spec_data['SPECIFICATION']['Spec']:
+            if not line.startswith("#"):
+                clean.append(line)
+
+        return "\n".join(clean)
+
+    @property
+    def regionNearIter(self):
+        """
+        Returns an iterator over the all instances of "region near" in the specifcation
+        :return: A iterator of type MatchObject with the region near in the "rA" group
+        """
+        regExp = r'near (?P<rA>\w+)'
+        return iter(re.findall(regExp, self.specTextclean))
+
+    @property
+    def regionWithinIter(self):
+        """
+        Returns an iterator over the all instances of "within distance from a region" in the specifcation
+        :return: A iterator of type MatchObject with the region within in the "rA" group and the distance
+                in the "dist" group
+        """
+        regExp = r'within (?P<dist>\d+) (from|of) (?P<rA>\w+)'
+        fullIter = re.findall(regExp, self.specTextclean)
+        regionIter = []
+        for rA, d, dist in fullIter:
+            regionIter.append((rA, dist))
+
+        return iter(regionIter)
+
+    @property
+    def regionBetweenIter(self):
+        """
+        Returns an iterator over all instances of "region between" in the specification
+        :return: An iterator of type MatchObject with the two regions as the "rA" and "rB" groups
+        """
+        regExp = r'between (?P<rA>\w+) and (?P<rB>\w+)'
+        return iter(re.findall(regExp, self.specTextclean))
 
 

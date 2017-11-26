@@ -1,6 +1,8 @@
+.vagrant/
 *.pyc
 *.swp
 *.aut
+*.slugsin
 *.cfg
 *.ltl
 *.smv
@@ -30,5 +32,7 @@ src/lib/cores/picosat*
 *.bdd
 *.autWinPos
 *.addWinPos
+.classpath
+*.cost
 
 *.sublime-*

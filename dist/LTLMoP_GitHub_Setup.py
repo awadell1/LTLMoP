@@ -27,7 +27,7 @@ def downloadDependenciesAndAddToPath():
 
     # Download the main setup scripts
     for filename in ("catUtils.py", "gitUtils.py"):
-        url = "https://github.com/LTLMoP/LTLMoP/raw/development/dist/" + filename
+        url = "https://github.com/VerifiableRobotics/LTLMoP/raw/development/dist/" + filename
         print "Fetching {}...".format(url)
         out_file = os.path.join(temp_dir, filename)
         urllib.urlretrieve(url, out_file)
@@ -209,7 +209,7 @@ if __name__ == "__main__":
         # Update the GitHub profile
         githubAPICall("/user", {'name': github_fullname}, method="PATCH")
 
-    github_email = email_data[0]
+    github_email = email_data[0]["email"]
 
     patrickSays("Nice to meet you, %s! ... My name's Patrick, by the way." % github_fullname.split(" ")[0])
     print
@@ -232,7 +232,7 @@ if __name__ == "__main__":
         if not os.path.exists(os.path.dirname(pubkey_path)):
             os.mkdir(os.path.dirname(pubkey_path))
 
-        cmd = subprocess.Popen(["ssh-keygen", "-t", "rsa", "-C", github_email["email"], "-f", os.path.splitext(pubkey_path)[0]], shell=True)
+        cmd = subprocess.Popen(["ssh-keygen", "-t", "rsa", "-C", github_email, "-f", os.path.splitext(pubkey_path)[0]], shell=True)
 
         # Wait for subprocess to finish
         while cmd.returncode is None:
@@ -287,7 +287,7 @@ if __name__ == "__main__":
         fresh_fork = False
     else:
         print "Creating a fork of LTLMoP on GitHub for you.  This may take a few minutes..."
-        response = githubAPICall("/repos/LTLMoP/LTLMoP/forks", method="POST")
+        response = githubAPICall("/repos/VerifiableRobotics/LTLMoP/forks", method="POST")
         print "Creation started at URL: " + response['html_url']
         patrickSays("Please wait!")
         print
@@ -330,7 +330,7 @@ if __name__ == "__main__":
             runGitCommand("git push origin :%s" % b['name'])
 
     print "Adding official repository as `upstream` remote..."
-    runGitCommand("git remote add upstream https://github.com/LTLMoP/LTLMoP.git")
+    runGitCommand("git remote add upstream https://github.com/VerifiableRobotics/LTLMoP.git")
     runGitCommand("git fetch upstream development")
 
     patrickSays("Hooray!  All done!  See you around.")

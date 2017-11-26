@@ -576,6 +576,27 @@ class RegionFileInterface(object):
         self.filename = filename
 
         return True
+
+    def regionList(self, prefix=""):
+        """
+        Retuns a list of all of regions names with the given prefix
+        :param prefix: String to prepend to each region name
+        :return: A List of region names
+        """
+        return [prefix + x.name for x in self.regions]
+
+    @property
+    def boundaryRegion(self):
+        """
+        Returns the boundary region
+        :return: An instance of class Region with the name "boundary" or None if no matching regions are found
+        """
+        for r in self.regions:
+            if r.isBoundary():
+                return r
+
+        # No Boundary region found
+        return None
    
 ############################################################
  
@@ -1001,6 +1022,7 @@ class Region(object):
 
     def findPointsNear(self, face, center, distance):
         # find slope of the face line
+        face = list(face)
         x1=face[0][0]
         y1=face[0][1]
         x2=face[1][0]
@@ -1138,6 +1160,14 @@ class Region(object):
             y = float(a[0]*c[1] - a[1]*c[0])/det
 
         return Point(x,y)
+
+    def isBoundary(self):
+        """
+        Checks if region is a boundary region
+        :return: True iff the region is the boundary region
+        """
+
+        return self.name.lower() == "boundary"
         
     #
     #    # calculate the functions of the lines at the faces

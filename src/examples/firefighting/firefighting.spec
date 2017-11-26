@@ -11,21 +11,22 @@ radio, 1
 extinguish, 0
 
 CompileOptions:
-neighbour_robot: False
 convexify: True
-parser: structured
-symbolic: False
-use_region_bit_encoding: True
-multi_robot_mode: negotiation
 cooperative_gr1: False
-fastslow: False
-only_realizability: False
-recovery: False
-include_heading: False
-winning_livenesses: False
-synthesizer: jtlv
 decompose: True
+fastslow: False
+include_heading: False
 interactive: False
+multi_robot_mode: negotiation
+neighbour_robot: False
+only_realizability: False
+optimal: twodim
+parser: structured
+recovery: False
+symbolic: False
+synthesizer: slugs
+use_region_bit_encoding: True
+winning_livenesses: False
 
 CurrentConfigName:
 Basic Simulation
@@ -47,6 +48,10 @@ hazardous_item, 1
 GlobalSensors: # Sensors accessible by all robots
 
 OtherRobot: # The other robot in the same workspace
+
+Cost: # Transistion Weights in structured English
+1 0 <
+10.0 deck
 
 RegionMapping: # Mapping between region names and their decomposed counterparts
 living = p4

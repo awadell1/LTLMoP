@@ -792,7 +792,7 @@ def TestLoadAndDump(spec_filename):
 
     strat = createStrategyFromFile(proj.getStrategyFilename(),
                                    proj.enabled_sensors,
-                                   proj.enabled_actuators + proj.all_customs + [region_domain])
+                                   proj.enabled_actuators + proj.all_customs + proj.internal_props + [region_domain])
 
     ### Choose a starting state
     initial_region = spec_map.regions[0]  # Hopefully this is a valid region to start from...

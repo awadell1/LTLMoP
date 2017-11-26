@@ -39,6 +39,46 @@ class SpecCompiler(object):
 
         if spec_filename is not None:
             self.loadSpec(spec_filename)
+        
+        # Set up SLUGS if needed
+        self._setupSLUGS()
+
+    def _setupSLUGS(self):
+        """
+        Asserts that SLUGS has been installed properly and adds slugs/tools to the python path
+        :raises Runtime Error if SLUGS has not been compiled
+        :raises Runtime Error if ltlmop_root/etc/slugs/tools does not exist
+        """
+        if self.proj.compile_options["synthesizer"].lower() == "slugs":
+            # Check that slugs is compiled
+            slugs_path = os.path.join(self.proj.ltlmop_root, "etc", "slugs", "src", "slugs")
+            if not os.path.exists(slugs_path):
+                # TODO: automatically compile for the user
+                raise RuntimeError("Please compile the synthesis code first.  For instructions, see etc/slugs/README.md.")
+
+            # Check that the slugs/tools folder exists
+            slugs_tools_path = os.path.join(self.proj.ltlmop_root, "etc", "slugs", "tools")
+            if not os.path.exists(slugs_tools_path):
+                raise RuntimeError("Could not find the slugs/tools directory. Was SLUGS compiled correctly?")
+
+            # Add the slugs/tools folder to the python path
+            sys.path.insert(0, slugs_tools_path)
+
+    def loadProject(self, p):
+        """
+        Initalize specCompiler from a project object
+        :param p: A instance of class project
+        :return: This instance of class specComplier
+        """
+
+        # Check class of project
+        assert(isinstance(p, project.Project))
+
+        # Set p as the project
+        self.proj = p
+
+        # Return self for chaining
+        return self
 
     def loadSpec(self,spec_filename):
         """
@@ -57,6 +97,9 @@ class SpecCompiler(object):
         if self.specText.strip() == "":
             ltlmop_logger.warning("Please write a specification before compiling.")
             return
+
+        # Set up SLUGS if needed
+        self._setupSLUGS()
 
     def loadSimpleSpec(self,text="", regionList=[], sensors=[], actuators=[], customs=[], adj=[], outputfile=""):
         """
@@ -165,19 +208,99 @@ class SpecCompiler(object):
 
         createSMVfile(self.proj.getFilenamePrefix(), sensorList, robotPropList)
 
+    def _replaceInputNames(self, formula):
+        """
+        Prepends all input propositions with "e." in the formala
+        :param formula: An LTL fragment
+        :return: formula with all "inputProp" replaced with "e.inputProp"
+        """
+        for inProp in self.proj.all_sensors:
+            formula = formula.replace(inProp, "e."+ inProp)
+
+        return formula
+
+    def _replaceOutputNames(self, formula):
+        """
+        Prepends all output propositions with "s." in the formala
+        :param formula: An LTL fragment
+        :return: formula with all "outputProp" replaced with "s.outputProp"
+        """
+        for outProp in self.proj.all_actuators:
+            formula = formula.replace(outProp, "s."+ outProp)
+
+        return formula
+
+    def _writeCostFile(self):
+        """
+        Generates .cost file from the cost text supplied by the specification
+        :return: None
+        """
+        self._setupSLUGS()
+        filename = self.proj.getFilenamePrefix() + ".cost"
+        costFile = open(filename, 'w')
+
+        # Get a list of region names
+        regionList = self._getRegionList()
+
+        # Must use bit encoding with slugs
+        assert self.proj.compile_options["use_region_bit_encoding"]
+
+        # Create the region bit encoding
+        numBits = int(math.ceil(math.log(len(regionList), 2)))
+        bitEncode = bitEncoding(len(regionList), numBits)
+
+        # Add the conversion script to our path
+        from translateFromLTLMopLTLFormatToSlugsFormat import parseLTL, parseSimpleFormula
+
+        # Regex used for parsing cost spec
+        RE_FACTOR = re.compile('\d \d (<|>)', re.IGNORECASE)
+        RE_ENTRY = re.compile('(\\d+\\.\\d+)\\s(.*)', re.IGNORECASE)
+
+        # Step through Cost Specification
+        costText = []
+        for line in self.proj.costText.split('\n'):
+            # Check if First Line -> Cost Factors
+            if len(costText) == 0:
+                if RE_FACTOR.search(line) != None:
+                    costText.append(line)
+                    continue
+                else:
+                    RuntimeError("The first line of the cost spec must always represent the cost factors for waiting and delay cost.")
+
+            # Split into the value and formula portions and check for success
+            entryRE = RE_ENTRY.search(line)
+            value = entryRE.group(1)
+            formula = entryRE.group(2)
+
+            # Replace region names in cost with decomposed region names
+            formula = self._subDecompedRegion(formula)
+
+            # Replace Formula with bit encoding
+            formula = replaceRegionName(formula, bitEncode, regionList)
+
+            # Replace Input (Sensor) names
+            formula = self._replaceInputNames(formula)
+
+            # Replace Output (Actuator) names
+            formula = self._replaceOutputNames(formula)
+
+            # Parse into SLUGS format (Postfix notation)
+            formulaTree = parseLTL(formula+';')
+            formula = parseSimpleFormula(formulaTree[1], False)
+            formula = ' '.join(formula)
+
+            # Append to cost text
+            costText.append(value + ' ' + formula)
+
+        # Write costText to file
+        costFile.write("\n".join(costText))
+
     def _writeLTLFile(self, createLTL = True):
-        
-        ###### ENV Assumptions Learning #############
-        # createLTL: True for normal cases, False when running execute.py
-        #############################################
 
         self.LTL2SpecLineNumber = None
 
-        if self.proj.rfi:
-            #regionList = [r.name for r in self.parser.proj.rfi.regions]
-            regionList = [r.name for r in self.proj.rfi.regions]
-        else:
-            regionList = []
+        #regionList = [r.name for r in self.parser.proj.rfi.regions]
+        regionList = self.proj.rfi.regionList()
         sensorList = deepcopy(self.proj.enabled_sensors)
         actuatorList = deepcopy(self.proj.enabled_actuators)
         customsList = deepcopy(self.proj.all_customs)
@@ -214,7 +337,7 @@ class SpecCompiler(object):
 
             # Filter out regions it shouldn't know about
             filtered_regions = [region.name for region in self.proj.rfi.regions
-                                if not (region.isObstacle or region.name.lower() == "boundary")]
+                                if not (region.isObstacle or region.isBoundary())]
             LTLspec_env, LTLspec_sys, self.proj.internal_props, internal_sensors, results, responses, traceback = \
                 _SLURP_SPEC_GENERATOR.generate(text, sensorList, filtered_regions, robotPropList, region_tags)
 
@@ -242,15 +365,12 @@ class SpecCompiler(object):
 
             if self.proj.compile_options["decompose"]:
                 # substitute decomposed region names
-                for r in self.proj.rfi.regions:
-                    if not (r.isObstacle or r.name.lower() == "boundary"):
-                        LTLspec_env = re.sub('\\bs\.' + r.name + '\\b', "("+' | '.join(["s."+x for x in self.parser.proj.regionMapping[r.name]])+")", LTLspec_env)
-                        LTLspec_env = re.sub('\\be\.' + r.name + '\\b', "("+' | '.join(["e."+x for x in self.parser.proj.regionMapping[r.name]])+")", LTLspec_env)
-                        LTLspec_sys = re.sub('\\bs\.' + r.name + '\\b', "("+' | '.join(["s."+x for x in self.parser.proj.regionMapping[r.name]])+")", LTLspec_sys)
-                        LTLspec_sys = re.sub('\\be\.' + r.name + '\\b', "("+' | '.join(["e."+x for x in self.parser.proj.regionMapping[r.name]])+")", LTLspec_sys)
+                LTLspec_env = self._subDecompedRegion(LTLspec_env, '\\bs\.')
+                LTLspec_env = self._subDecompedRegion(LTLspec_env, '\\bs\.')
+                LTLspec_sys = self._subDecompedRegion(LTLspec_sys, '\\bs\.')
+                LTLspec_sys = self._subDecompedRegion(LTLspec_sys, '\\bs\.')
 
             response = responses
-
         elif self.proj.compile_options["parser"] == "ltl":
             # delete comments
             text = re.sub(r"#.*$", "", text, flags=re.MULTILINE)
@@ -274,50 +394,68 @@ class SpecCompiler(object):
 
             if self.proj.compile_options["decompose"]:
                 # substitute decomposed region
-                for r in self.proj.rfi.regions:
-                    if not (r.isObstacle or r.name.lower() == "boundary"):
-                        LTLspec_env = re.sub('\\b(?:s\.)?' + r.name + '\\b', "("+' | '.join(["s."+x for x in self.parser.proj.regionMapping[r.name]])+")", LTLspec_env)
-                        LTLspec_sys = re.sub('\\b(?:s\.)?' + r.name + '\\b', "("+' | '.join(["s."+x for x in self.parser.proj.regionMapping[r.name]])+")", LTLspec_sys)
-                        LTLspec_env = re.sub('\\b(?:e\.)?' + r.name + "_rc" + '\\b', "("+' | '.join(["e."+x+"_rc" for x in self.parser.proj.regionMapping[r.name]])+")", LTLspec_env)
-                        LTLspec_sys = re.sub('\\b(?:e\.)?' + r.name + "_rc" + '\\b', "("+' | '.join(["e."+x+"_rc" for x in self.parser.proj.regionMapping[r.name]])+")", LTLspec_sys)
+                LTLspec_env = self._subDecompedRegion(LTLspec_env, '\\b(?:s\.)?')
+                LTLspec_sys = self._subDecompedRegion(LTLspec_sys, '\\b(?:s\.)?')
             else:
                 for r in self.proj.rfi.regions:
-                    if not (r.isObstacle or r.name.lower() == "boundary"):
+                    if not (r.isObstacle or r.isBoundary()):
                         LTLspec_env = re.sub('\\b(?:s\.)?' + r.name + '\\b', "s."+r.name, LTLspec_env)
                         LTLspec_sys = re.sub('\\b(?:s\.)?' + r.name + '\\b', "s."+r.name, LTLspec_sys)
                         LTLspec_env = re.sub('\\b(?:e\.)?' + r.name+"_rc" + '\\b' , "e."+r.name+"_rc", LTLspec_env)
                         LTLspec_sys = re.sub('\\b(?:e\.)?' + r.name+"_rc" + '\\b' , "e."+r.name+"_rc", LTLspec_sys)
 
             traceback = [] # HACK: needs to be something other than None
+
         elif self.proj.compile_options["parser"] == "structured":
             import parseEnglishToLTL
-            if self.proj.rfi:
-                if self.proj.compile_options["decompose"]:
-                    # substitute the regions name in specs
-                    for m in re.finditer(r'near (?P<rA>\w+)', text):
-                        text=re.sub(r'near (?P<rA>\w+)', "("+' or '.join(["s."+r for r in self.parser.proj.regionMapping['near$'+m.group('rA')+'$'+str(50)]])+")", text)
-                    for m in re.finditer(r'within (?P<dist>\d+) (from|of) (?P<rA>\w+)', text):
-                        text=re.sub(r'within ' + m.group('dist')+' (from|of) '+ m.group('rA'), "("+' or '.join(["s."+r for r in self.parser.proj.regionMapping['near$'+m.group('rA')+'$'+m.group('dist')]])+")", text)
-                    for m in re.finditer(r'between (?P<rA>\w+) and (?P<rB>\w+)', text):
-                        text=re.sub(r'between ' + m.group('rA')+' and '+ m.group('rB'),"("+' or '.join(["s."+r for r in self.parser.proj.regionMapping['between$'+m.group('rA')+'$and$'+m.group('rB')+"$"]])+")", text)
 
-                    # substitute decomposed region
-                    for r in self.proj.rfi.regions:
-                        if not (r.isObstacle or r.name.lower() == "boundary"):
-                            text = re.sub('\\b' + r.name + '\\b', "("+' | '.join(["s."+x for x in self.parser.proj.regionMapping[r.name]])+")", text)
+            if self.proj.compile_options["decompose"]:
+                # substitute the regions name in specs
+                or_symbol = ' or '
+                prefix = "s."
+                for rA in self.proj.regionNearIter:
+                    net_region = self.parser.proj.mappedRegion('near$'+rA+'$'+str(50), prefix, or_symbol)
+                    text=re.sub(r'near (?P<rA>\w+)', net_region, text)
 
-                    regionList = ["s."+x.name for x in self.parser.proj.rfi.regions]
-                else:
-                    for r in self.proj.rfi.regions:
-                        if not (r.isObstacle or r.name.lower() == "boundary"):
-                            text = re.sub('\\b' + r.name + '\\b', "s."+r.name, text)
+                for rA, dist in self.proj.regionWithinIter:
+                    net_region = self.parser.proj.mappedRegion('near$'+rA+'$'+dist, prefix, or_symbol)
+                    text=re.sub(r'within ' + dist +' (from|of) '+ rA, net_region, text)
 
-                    regionList = ["s."+x.name for x in self.proj.rfi.regions if not x.isObstacle and x.name != "boundary"]
+                for rA, rB in self.proj.regionBetweenIter:
+                    net_region = self.parser.proj.mappedRegion('between$'+rA+'$and$'+rB+"$", prefix, or_symbol)
+                    text=re.sub(r'between ' + rA+' and '+ rB, net_region, text)
 
-            if self.proj.compile_options["fastslow"]:
-                spec, traceback, failed, self.LTL2SpecLineNumber, self.proj.internal_props = parseEnglishToLTL.writeSpec(text, sensorList, regionList, actuatorList, customsList, fastslow = True,use_bits = self.proj.compile_options["use_region_bit_encoding"])
+                # substitute decomposed region
+                text = self._subDecompedRegion(text, '\\b')
+
+                regionList = self.parser.proj.rfi.regionList("s.")
             else:
-                spec, traceback, failed, self.LTL2SpecLineNumber, self.proj.internal_props = parseEnglishToLTL.writeSpec(text, sensorList, regionList, actuatorList, customsList, use_bits = self.proj.compile_options["use_region_bit_encoding"])
+                for r in self.proj.rfi.regions:
+                    if not (r.isObstacle or r.isBoundary()):
+                        # TODO Replace with call to mappedRegion?
+                        text = re.sub('\\b' + r.name + '\\b', "s."+r.name, text)
+
+                regionList = self.proj.rfi.regionList("s.")
+
+            # Parse English to LTL
+            sensorList = deepcopy(self.proj.enabled_sensors)
+            robotPropList = self.proj.enabled_actuators + self.proj.all_customs
+
+            # Parse Structured English to LTL Specification
+            spec, traceback, failed, self.LTL2SpecLineNumber, new_internal_props = parseEnglishToLTL.writeSpec(
+                text,
+                sensorList,
+                regionList,
+                self.proj.enabled_actuators,
+                self.proj.all_customs,
+                fastslow = self.proj.compile_options['fastslow'],
+                use_bits = self.proj.compile_options['use_region_bit_encoding']
+                )
+
+            # Append any truly new internal_props to the project
+            for p in new_internal_props:
+                if p not in self.proj.internal_props:
+                    self.proj.internal_props.append(p)
 
             # Abort compilation if there were any errors
             if failed:
@@ -416,11 +554,9 @@ class SpecCompiler(object):
             if self.proj.compile_options["use_region_bit_encoding"]:
                 # Define the number of bits needed to encode the regions
                 numBits = int(math.ceil(math.log(len(regionList),2)))
-
                 # creating the region bit encoding
                 bitEncode = bitEncoding(len(regionList),numBits)
-                currBitEnc = bitEncode['current']
-                nextBitEnc = bitEncode['next']
+
 
                 # switch to bit encodings for regions
                 LTLspec_env = replaceRegionName(LTLspec_env, bitEncode, regionList)
@@ -490,6 +626,7 @@ class SpecCompiler(object):
 
             #self.spec.update(self.splitSpecIntoComponents(LTLspec_env, LTLspec_sys))
 
+        # Set InitRegionSanityCheck
         if self.proj.rfi:
             # Add in a fragment to make sure that we start in a valid region
             if self.proj.compile_options["decompose"]:
@@ -517,6 +654,7 @@ class SpecCompiler(object):
 		    else:
 		        for key, value in spec.iteritems():
 		            self.spec[key] = value
+
         #only write to LTLfile with specEditor
         if createLTL == True:
             createLTLfile(self.proj.getFilenamePrefix(), LTLspec_env, LTLspec_sys)
@@ -526,10 +664,6 @@ class SpecCompiler(object):
             self.reversemapping = {self.postprocessLTL(line,sensorList,robotPropList).strip():line.strip() for line in oldspec_env + oldspec_sys}
             self.reversemapping[self.spec['Topo'].replace("\n","").replace("\t","").lstrip().rstrip("\n\t &")] = "TOPOLOGY"
 
-        #for k,v in self.reversemapping.iteritems():
-        #    print "{!r}:{!r}".format(k,v)
-
-        ######## ENV Assumption Learning #######
         return self.spec, traceback, response
         #######################################
 
@@ -570,20 +704,17 @@ class SpecCompiler(object):
 
         return text
 
-
     def postprocessLTL(self, text, sensorList, robotPropList):
+        """
+        """
         # TODO: make everything use this
         if self.proj.compile_options["decompose"]:
             # substitute decomposed region names
-            for r in self.proj.rfi.regions:
-                if not (r.isObstacle or r.name.lower() == "boundary"):
-                    text = re.sub('\\bs\.' + r.name + '\\b', "("+' | '.join(["s."+x for x in self.parser.proj.regionMapping[r.name]])+")", text)
-                    text = re.sub('\\be\.' + r.name + '\\b', "("+' | '.join(["e."+x for x in self.parser.proj.regionMapping[r.name]])+")", text)
+            text = self._subDecompedRegion(text, '\\bs\.')
+            text = self._subDecompedRegion(text, '\\be\.')
 
-        if self.proj.compile_options["decompose"]:
-            regionList = [x.name for x in self.parser.proj.rfi.regions]
-        else:
-            regionList = [x.name for x in self.proj.rfi.regions]
+        # Get a list of region names
+        regionList = self._getRegionList()
 
         # Define the number of bits needed to encode the regions
         numBits = int(math.ceil(math.log(len(regionList),2)))
@@ -649,18 +780,18 @@ class SpecCompiler(object):
                     err = 1
 
     def _getSlugsCommand(self, execution=False, analysis=False):
+        # Check that slugs is compiled
+        self._setupSLUGS()
+
         slugs_path = os.path.join(self.proj.ltlmop_root, "etc", "slugs", "src", "slugs")
 
-        # Check that slugs is compiled
-        if not os.path.exists(slugs_path):
-            # TODO: automatically compile for the user
-            raise RuntimeError("Please compile the synthesis code first.  For instructions, see etc/slugs/README.md.")
+        ## Construct Slugs Command
         cmd  = [slugs_path, "--sysInitRoboticsSemantics"]
 
+        # Set Slugs Options
         if analysis:
             cmd.append("--unrealizabilityAnalysis")
             ltlmop_logger.debug('Analyzing specification')
-
         else:
             if self.proj.compile_options["recovery"] and (execution or not self.proj.compile_options['interactive']):
                 cmd.extend(["--simpleRecovery", "--optimisticRecovery"])
@@ -682,20 +813,26 @@ class SpecCompiler(object):
                 ltlmop_logger.debug('Using interacitve strategy mode')
 
             if self.proj.compile_options['neighbour_robot'] and self.proj.compile_options["multi_robot_mode"] == "patching" or self.proj.compile_options["winning_livenesses"]:
-                #cmd = [slugs_path, "--withWinningLiveness", "--sysInitRoboticsSemantics", self.proj.getFilenamePrefix() + ".slugsin", self.proj.getFilenamePrefix() + ".aut"]
                 cmd.append("--withWinningLiveness")
                 ltlmop_logger.debug('Synthesizing strategy which also outputs livenesses')
-
+  
         if self.proj.compile_options["cooperative_gr1"]:
             cmd.append("--cooperativeGR1Strategy")
             ltlmop_logger.debug('Synthesizing strategy with cooperative strategy')
 
-        if self.proj.compile_options["only_realizability"] or self.proj.compile_options['interactive'] or analysis:
-            cmd.extend([self.proj.getFilenamePrefix() + ".slugsin"])
-        elif self.proj.compile_options["symbolic"]:
-            cmd.extend([self.proj.getFilenamePrefix() + ".slugsin", self.proj.getFilenamePrefix() + ".bdd"])
-        else:
-            cmd.extend([self.proj.getFilenamePrefix() + ".slugsin", self.proj.getFilenamePrefix() + ".aut"])
+        if self.proj.compile_options['optimal'] == 'twodim':
+            cmd.extend(['--twoDimensionalCost', self.proj.getFilenamePrefix()+'.cost'])
+
+        # Pass *.slugins filename
+        cmd.append(self.proj.getFilenamePrefix() + ".slugsin")
+
+        # Pass in Strategy File
+        if not(self.proj.compile_options["only_realizability"] or self.proj.compile_options['interactive'] or analysis):
+            # Get Strategy File Type
+            if self.proj.compile_options['symbolic']:
+               cmd.append(self.proj.getFilenamePrefix() + ".bdd")
+            else:
+                cmd.append(self.proj.getFilenamePrefix() + ".aut")
 
         return cmd
 
@@ -807,9 +944,8 @@ class SpecCompiler(object):
             return True
 
         strat = strategy.createStrategyFromFile(self.proj.getStrategyFilename(),
-                                                enabled_sensors  + regionCompleted_domain,
-                                                self.proj.enabled_actuators + self.proj.all_customs  + self.proj.internal_props + region_domain)
-
+                                                self.proj.enabled_sensors,
+                                                self.proj.enabled_actuators + self.proj.all_customs + self.proj.internal_props + [region_domain])
 
         nonTrivial = any([len(strat.findTransitionableStates({}, s)) > 0 for s in strat.iterateOverStates()])
 
@@ -910,8 +1046,6 @@ class SpecCompiler(object):
         subp.stdout.close()
 
         return (realizable, unsat, nonTrivial, to_highlight, output)
-
-
 
     def _coreFinding(self, to_highlight, unsat, badInit):
         #returns list of formulas that cause unsatisfiability/unrealizability (based on unsat flag).
@@ -1043,7 +1177,6 @@ class SpecCompiler(object):
         
         return guilty
 
-
     def unsatCores(self, cmd, topo, badInit, conjuncts,maxDepth,initDepth):
         #returns list of guilty LTL formulas
         #takes LTL formulas for topo, badInit and conjuncts separately because they are used in various combinations later
@@ -1056,8 +1189,6 @@ class SpecCompiler(object):
             self.trans, guilty = unsatCoreCases(cmd, self.propList, topo, badInit, conjuncts,maxDepth,initDepth)
 
         return guilty
-
-
 
     def unrealCores(self, cmd, topo, badInit, badStatesLTL, conjuncts, deadlockFlag, aux, counterTraces=False, cyc_enc=True):
         #returns list of guilty LTL formulas FOR THE UNREALIZABLE CASE
@@ -1112,10 +1243,6 @@ class SpecCompiler(object):
 
         return guilty
 
-
-
-
-
     def _getPicosatCommand(self):
         # look for picosat
 
@@ -1133,10 +1260,6 @@ class SpecCompiler(object):
             cmd = [os.path.join(paths[0],"picomus")]
 
         return cmd
-
-
-
-
 
     def ltlConjunctsFromBadLines(self, to_highlight, useInitFlag):
         #given the lines to be highlighted by the initial analysis in _analyze(),
@@ -1187,9 +1310,7 @@ class SpecCompiler(object):
             This is a stop-gap fix; eventually we should just produce the input
             directly instead of using the conversion script. """
 
-        # Add the conversion script to our path
-        slugs_converter_path = os.path.join(self.proj.ltlmop_root, "etc", "slugs", "tools")
-        sys.path.insert(0, slugs_converter_path)
+        # Import Converter function
         from translateFromLTLMopLTLFormatToSlugsFormat import performConversion
 
         # Call the conversion script
@@ -1316,3 +1437,30 @@ class SpecCompiler(object):
         subp.stdout.close()
         print "OUTPUT",output
         return to_highlight
+
+    def _getRegionList(self):
+        """
+        Returns a list of region names from the parser.proj or self.proj depending on the setting of "decompose"
+        :return: A list of region names
+        """
+        if self.proj.compile_options["decompose"]:
+            regionList = self.parser.proj.rfi.regionList()
+        else:
+            regionList = self.proj.rfi.regionList()
+
+        return regionList
+
+    def _subDecompedRegion(self, fragment, prefix=""):
+        """
+        Replaces the names of regions with their decomposed versions
+        :param fragment: The Ltl fragment conatining region names to be replaced
+        :param prefix: Prepend name with prefix string when searching
+        :return: The ltl fragement with all of the regions replace with their decomposed versions
+        """
+        # substitute decomposed region names
+        for r in self.proj.rfi.regions:
+            # Only update region name if not an obstacle or the boundary region
+            if not (r.isObstacle or r.isBoundary()):
+                fragment = re.sub(prefix + r.name + '\\b', self.parser.proj.mappedRegion(r.name, "s."), fragment)
+
+        return fragment
