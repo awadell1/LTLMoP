@@ -1261,8 +1261,9 @@ class SpecEditorFrame(wx.Frame):
             # Display output realtime in the log
             wx.CallAfter(self.appendLog, "\t"+text)
 
-        if self.proj.compile_options["optimal"] == "twodim":
-            compiler._writeCostFile()
+        # Write Cost File
+        cost_filename = self.proj.getFilenamePrefix() + '.cost'
+        compiler.proj.cost_spec.write_cost_file(cost_filename, compiler)
 
         # Kick off the synthesis
         try:

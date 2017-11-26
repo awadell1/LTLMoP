@@ -230,71 +230,6 @@ class SpecCompiler(object):
 
         return formula
 
-    def _writeCostFile(self):
-        """
-        Generates .cost file from the cost text supplied by the specification
-        :return: None
-        """
-        self._setupSLUGS()
-        filename = self.proj.getFilenamePrefix() + ".cost"
-        costFile = open(filename, 'w')
-
-        # Get a list of region names
-        regionList = self._getRegionList()
-
-        # Must use bit encoding with slugs
-        assert self.proj.compile_options["use_region_bit_encoding"]
-
-        # Create the region bit encoding
-        numBits = int(math.ceil(math.log(len(regionList), 2)))
-        bitEncode = bitEncoding(len(regionList), numBits)
-
-        # Add the conversion script to our path
-        from translateFromLTLMopLTLFormatToSlugsFormat import parseLTL, parseSimpleFormula
-
-        # Regex used for parsing cost spec
-        RE_FACTOR = re.compile('\d \d (<|>)', re.IGNORECASE)
-        RE_ENTRY = re.compile('(\\d+\\.\\d+)\\s(.*)', re.IGNORECASE)
-
-        # Step through Cost Specification
-        costText = []
-        for line in self.proj.costText.split('\n'):
-            # Check if First Line -> Cost Factors
-            if len(costText) == 0:
-                if RE_FACTOR.search(line) != None:
-                    costText.append(line)
-                    continue
-                else:
-                    RuntimeError("The first line of the cost spec must always represent the cost factors for waiting and delay cost.")
-
-            # Split into the value and formula portions and check for success
-            entryRE = RE_ENTRY.search(line)
-            value = entryRE.group(1)
-            formula = entryRE.group(2)
-
-            # Replace region names in cost with decomposed region names
-            formula = self._subDecompedRegion(formula)
-
-            # Replace Formula with bit encoding
-            formula = replaceRegionName(formula, bitEncode, regionList)
-
-            # Replace Input (Sensor) names
-            formula = self._replaceInputNames(formula)
-
-            # Replace Output (Actuator) names
-            formula = self._replaceOutputNames(formula)
-
-            # Parse into SLUGS format (Postfix notation)
-            formulaTree = parseLTL(formula+';')
-            formula = parseSimpleFormula(formulaTree[1], False)
-            formula = ' '.join(formula)
-
-            # Append to cost text
-            costText.append(value + ' ' + formula)
-
-        # Write costText to file
-        costFile.write("\n".join(costText))
-
     def _writeLTLFile(self, createLTL = True):
 
         self.LTL2SpecLineNumber = None
@@ -468,7 +403,7 @@ class SpecCompiler(object):
             self.robotPropList = robotPropList
             if "TRUE" in spec["EnvInit"] :
                 spec["EnvInit"] = "(TRUE)"
-            #LTLspec_env = spec["EnvInit"] + " & \n" + spec["EnvTrans"] + spec["EnvGoals"]  
+            #LTLspec_env = spec["EnvInit"] + " & \n" + spec["EnvTrans"] + spec["EnvGoals"]
             # ---------- two_robot_negotiation ---------#
             spec['InitEnvRegionSanityCheck'] = ''
             spec['EnvTrans'] = spec['EnvTrans'].strip().rstrip('&') # all spec snippets has no trailing &
@@ -659,7 +594,7 @@ class SpecCompiler(object):
         if createLTL == True:
             createLTLfile(self.proj.getFilenamePrefix(), LTLspec_env, LTLspec_sys)
         #############################################
-        
+
         if self.proj.compile_options["parser"] == "slurp":
             self.reversemapping = {self.postprocessLTL(line,sensorList,robotPropList).strip():line.strip() for line in oldspec_env + oldspec_sys}
             self.reversemapping[self.spec['Topo'].replace("\n","").replace("\t","").lstrip().rstrip("\n\t &")] = "TOPOLOGY"
@@ -714,7 +649,7 @@ class SpecCompiler(object):
             text = self._subDecompedRegion(text, '\\be\.')
 
         # Get a list of region names
-        regionList = self._getRegionList()
+        regionList = self.getRegionList()
 
         # Define the number of bits needed to encode the regions
         numBits = int(math.ceil(math.log(len(regionList),2)))
@@ -815,16 +750,16 @@ class SpecCompiler(object):
             if self.proj.compile_options['neighbour_robot'] and self.proj.compile_options["multi_robot_mode"] == "patching" or self.proj.compile_options["winning_livenesses"]:
                 cmd.append("--withWinningLiveness")
                 ltlmop_logger.debug('Synthesizing strategy which also outputs livenesses')
-  
+
         if self.proj.compile_options["cooperative_gr1"]:
             cmd.append("--cooperativeGR1Strategy")
             ltlmop_logger.debug('Synthesizing strategy with cooperative strategy')
 
-        if self.proj.compile_options['optimal'] == 'twodim':
-            cmd.extend(['--twoDimensionalCost', self.proj.getFilenamePrefix()+'.cost'])
-
         # Pass *.slugins filename
         cmd.append(self.proj.getFilenamePrefix() + ".slugsin")
+
+        # Add parameters required by the cost_spec
+        cmd = self.proj.cost_spec.append_slugs_cmd(cmd)
 
         # Pass in Strategy File
         if not(self.proj.compile_options["only_realizability"] or self.proj.compile_options['interactive'] or analysis):
@@ -851,11 +786,11 @@ class SpecCompiler(object):
                                 os.path.join(jtlv_path, "GROne")])
 
         cmd = ["java", "-ea", "-Xmx512m", "-cp", classpath, module, self.proj.getFilenamePrefix() + ".smv", self.proj.getFilenamePrefix() + ".ltl"]
-        
-        
+
+
         if refine:
             cmd += ["true"]
-            
+
         return cmd
 
     def _autIsNonTrivial(self):
@@ -950,7 +885,7 @@ class SpecCompiler(object):
         nonTrivial = any([len(strat.findTransitionableStates({}, s)) > 0 for s in strat.iterateOverStates()])
 
         return nonTrivial
-            
+
     ################## ENV Assumption Learning ##############
     def _analyze(self, generatedSpec = False):
     ##########################################################
@@ -1076,10 +1011,10 @@ class SpecCompiler(object):
 
         #find deadlocked states in the automaton (states with no out-transitions)
         deadStates = [s for s in strat.states if not strat.findTransitionableStates({}, from_state = s)]
-        
+
         #find states that can be forced by the environment into the deadlocked set
         forceDeadStates = [(s, e) for s in strat.states for e in deadStates if e in strat.findTransitionableStates({}, from_state = s)]
-        
+
         #LTL representation of these states and the deadlock-causing environment move in the next time step
         forceDeadlockLTL = map(lambda (s,e): " & ".join([s.getLTLRepresentation(swap_players=True), e.getLTLRepresentation(use_next=True, include_inputs=False, swap_players=True)]), forceDeadStates)
 
@@ -1089,8 +1024,8 @@ class SpecCompiler(object):
 
         if desiredGoal:
             desiredGoal = desiredGoal[0]
-        
-        
+
+
         def preventsDesiredGoal(s):
             #find states in the counterstrategy that prevent to desired goal (as indicated by the second component of the 'rank')
             rank_str = strat.findTransitionableStates({}, from_state = s)[0].goal_id #originally rank
@@ -1104,28 +1039,28 @@ class SpecCompiler(object):
         def sublistExists(list1, list2):
             #checks if list1 is a sublist of list2
             return ''.join(map(str, list2)) in ''.join(map(str, list1))
-        
+
         desiredGoalSCCs = [(s,t) for s in strat.states for t in strat.findTransitionableStates({}, from_state = s) if preventsDesiredGoal(s) and preventsDesiredGoal(t)]
-            
+
         counterTraces = True
-        
-        # IDENTIFY COUNTERTRACES       
+
+        # IDENTIFY COUNTERTRACES
         for (s,t) in desiredGoalSCCs:
             if [(s2,t2) for (s2,t2) in desiredGoalSCCs if s2==s and t2!=t]:
                 counterTraces = False
-        
-        
+
+
         if counterTraces:
             cycles = strat.findAllCycles()
             desiredGoalCycles = [c for c in cycles if all(map(preventsDesiredGoal, c))]
             #desiredGoalCycles = [c for c in desiredGoalCycles if not any(map(lambda x: sublistExists(x, c), [x for x in desiredGoalCycles if x!=c]))]
             #forceLivelockLTL = [[fro]+c[0:4] for c in desiredGoalCycles for fro in aut.states for to in c if (to in fro.transitions and fro not in c)]
-        
+
         #else:
             #desiredGoalSCCs = [(s,t) for s in strat.states for t in strat.findTransitionableStates({}, from_state = s) if preventsDesiredGoal(s) and preventsDesiredGoal(t)]
             #print [s.getName()+t.getName() for (s,t) in desiredGoalSCCs]
-        
-        
+
+
         #size of counterstrategy and number of regions
         #useful for determininig a good unroll depth
         numStates = len(strat.states)
@@ -1137,7 +1072,7 @@ class SpecCompiler(object):
             badStatesLTL = forceDeadlockLTL
         else:
             #this means livelock
-            deadlockFlag = False     
+            deadlockFlag = False
             badStatesLTL = badInit
 
         #################################
@@ -1163,24 +1098,24 @@ class SpecCompiler(object):
         #self.propList = [p for p in self.propList if [c for c in conjuncts if p in c] or [c for c in badStatesLTL if p in c and not unsat] or p in topo]
 
         cmd = self._getPicosatCommand()
-       
-        cyc_enc = True 
+
+        cyc_enc = True
 
         if unsat:
             guilty = self.unsatCores(cmd, topo,badInit,conjuncts,10,1)#returns LTL conjuncts
         else:
             if counterTraces:
-                guilty = self.unrealCores(cmd, topo, badInit, badStatesLTL, conjuncts, deadlockFlag, desiredGoalCycles,counterTraces,cyc_enc)#returns LTL conjuncts   
+                guilty = self.unrealCores(cmd, topo, badInit, badStatesLTL, conjuncts, deadlockFlag, desiredGoalCycles,counterTraces,cyc_enc)#returns LTL conjuncts
             else:
                 return []
-                #guilty = self.unrealCores(cmd, topo, badInit, badStatesLTL, conjuncts, deadlockFlag, desiredGoalSCCs)#returns LTL conjuncts   
-        
+                #guilty = self.unrealCores(cmd, topo, badInit, badStatesLTL, conjuncts, deadlockFlag, desiredGoalSCCs)#returns LTL conjuncts
+
         return guilty
 
     def unsatCores(self, cmd, topo, badInit, conjuncts,maxDepth,initDepth):
         #returns list of guilty LTL formulas
         #takes LTL formulas for topo, badInit and conjuncts separately because they are used in various combinations later
-       
+
         if not conjuncts and badInit == "":
             #this means that the topology is unsatisfiable by itself (not common since we auto-generate)
             return topo
@@ -1193,7 +1128,7 @@ class SpecCompiler(object):
     def unrealCores(self, cmd, topo, badInit, badStatesLTL, conjuncts, deadlockFlag, aux, counterTraces=False, cyc_enc=True):
         #returns list of guilty LTL formulas FOR THE UNREALIZABLE CASE
         #takes LTL formulas representing the topology and other highlighted conjuncts as in the unsat case.
-        #also takes LTL representation of deadlocked/livelocked states ('badStatesLTL)        
+        #also takes LTL representation of deadlocked/livelocked states ('badStatesLTL)
         #returns LTL formulas that appear in the guilty set for *any* deadlocked or livelocked state,
         #i.e. formulas that cause deadlock/livelock in these states
 
@@ -1214,8 +1149,8 @@ class SpecCompiler(object):
                     extra = allCycles
             else:
                 extra = unwindSCCs(aux, self.propList, maxDepth)
-        
-        
+
+
 #        TODO: see if there is a way to call pool.map with processes that also use pools
 #
 #        sys.stdout = StringIO.StringIO()
@@ -1231,14 +1166,14 @@ class SpecCompiler(object):
         else:
             if counterTraces:
                 if cyc_enc:
-                    guiltyList = [unsatCoreCases(cmd, self.propList, topo, '', conjuncts, maxDepth, initDepth, extra)]       
+                    guiltyList = [unsatCoreCases(cmd, self.propList, topo, '', conjuncts, maxDepth, initDepth, extra)]
                 else:
                     guiltyList = map(lambda c: unsatCoreCases(cmd, self.propList, topo, c[1], conjuncts, maxDepth, c[2], c[0], cyc_enc), zip(extra, [cyc[0].getLTLRepresentation(swap_players=True) for cyc in aux], [len(c) for c in aux]))
-                
+
             else:
                 #guiltyList = map(lambda c: unsatCoreCases(cmd, self.propList, topo, '', conjuncts, maxDepth, initDepth, extra))
                 guiltyList = [unsatCoreCases(cmd, self.propList, topo, '', conjuncts, maxDepth, initDepth, extra)]
-         
+
         guilty = reduce(set.union,map(set,[g for t, g in guiltyList]))
 
         return guilty
@@ -1429,16 +1364,16 @@ class SpecCompiler(object):
         output= ""
         for dline in subp.stdout:
             output+= dline
-            if "Guilty safety conjuncts" in dline:  
+            if "Guilty safety conjuncts" in dline:
                 guilty = re.findall(r'([0-9]+)\s*',dline)
                 for g in guilty:
                     to_highlight.append(("sys", "trans", int(g)))
-                    
+
         subp.stdout.close()
         print "OUTPUT",output
         return to_highlight
 
-    def _getRegionList(self):
+    def getRegionList(self):
         """
         Returns a list of region names from the parser.proj or self.proj depending on the setting of "decompose"
         :return: A list of region names

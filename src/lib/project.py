@@ -37,8 +37,7 @@ class Project:
         self.otherRobot = []
         self.global_sensors = []
         # ------------------------------------ #
-        self.hasCost = False
-        self.costText = ""
+        self.cost_spec = None
         self.all_sensors = []
         self.enabled_sensors = []
         self.all_actuators = []
@@ -145,17 +144,40 @@ class Project:
             ltlmop_logger.warning("Failed to load specification file: %s"% spec_file)
             return None
 
+        # Load Compile Options
+        if 'CompileOptions' in spec_data['SETTINGS']:
+            for l in spec_data['SETTINGS']['CompileOptions']:
+                if ":" not in l:
+                    continue
+
+                k,v = l.split(":", 1)
+                if k.strip().lower() in ("parser", "synthesizer", "multi_robot_mode", "optimal"):
+                    self.compile_options[k.strip().lower()] = v.strip().lower()
+                else:
+                    # convert to boolean if not a parser type
+                    self.compile_options[k.strip().lower()] = (v.strip().lower() in ['true', 't', '1'])
+
         try:
             self.specText = '\n'.join(spec_data['SPECIFICATION']['Spec'])
         except KeyError:
             ltlmop_logger.warning("Specification text undefined")
-            
-        try:
-            self.costText = '\n'.join(spec_data['SPECIFICATION']['Cost'])
-            self.hasCost = self.costText != ''
-        except KeyError:
-            self.hasCost = False
-            ltlmop_logger.warning("Cost text undefined")
+
+        if 'Cost' in spec_data['SPECIFICATION']:
+            cost_type = self.compile_options['optimal']
+            cost_text = '\n'.join(spec_data['SPECIFICATION']['Cost'])
+            if cost_type == 'none':
+                from NoCost import NoCost
+                self.cost_spec = NoCost(self, cost_text)
+            elif cost_type == 'twodim':
+                from TwoDimensional import TwoDimensional
+                self.cost_spec = TwoDimensional(self, cost_text)
+        else:
+            # Default to no cost
+            from NoCost import NoCost
+            self.cost_spec = NoCost(self, '')
+
+        # Append Internal Propositions needed by cost_spec
+        self.internal_props = self.cost_spec.append_internal_propositions(self.internal_props)
 
         # ------ two_robot_negotiation ------#
         try:
@@ -168,23 +190,7 @@ class Project:
         except KeyError:
             ltlmop_logger.warning("global sensors undefined")
         # ---------------------------------- #
-        
-        if 'CompileOptions' in spec_data['SETTINGS']:
-            for l in spec_data['SETTINGS']['CompileOptions']:
-                if ":" not in l:
-                    continue
 
-                k,v = l.split(":", 1)
-                if k.strip().lower() in ("parser", "synthesizer", "multi_robot_mode", "optimal"):
-                    self.compile_options[k.strip().lower()] = v.strip().lower()
-                else:
-                    # convert to boolean if not a parser type
-                    self.compile_options[k.strip().lower()] = (v.strip().lower() in ['true', 't', '1'])
-                    
-        # Add Internal Specs for Two Dimensional Cost
-        if self.compile_options["optimal"] == "twodim":
-            self.internal_props.append("_l_a_c_v_1")
-            self.internal_props.append("_is_infty_cost_Pre")
 
         return spec_data
 
@@ -208,10 +214,9 @@ class Project:
         data['SPECIFICATION']['OtherRobot'] = self.otherRobot
         data['SPECIFICATION']['GlobalSensors'] = self.global_sensors
         # -------------------------------------------- #
-        
+
         # Add Cost
-        if self.hasCost:
-            data['SPECIFICATION']['Cost'] = self.costText
+        data['SPECIFICATION']['Cost'] = self.cost_spec.write_cost_spec()
 
         # Add Region Mapping
         if self.regionMapping is not None:
