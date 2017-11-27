@@ -8,24 +8,23 @@ Actions: # List of action propositions and their state (enabled = 1, disabled = 
 
 CompileOptions:
 neighbour_robot: True
-recovery: False
 convexify: True
-symbolic: False
 parser: structured
-include_heading: False
-winning_livenesses: False
+symbolic: False
 use_region_bit_encoding: True
 multi_robot_mode: negotiation
-synthesizer: slugs
 cooperative_gr1: True
 fastslow: False
-optimal: none
 only_realizability: False
+recovery: False
+include_heading: False
+winning_livenesses: False
+synthesizer: slugs
 decompose: True
 interactive: False
 
 CurrentConfigName:
-bob
+aliceWithRRT
 
 Customs: # List of custom propositions
 
@@ -33,25 +32,20 @@ RegionFile: # Relative path of region description file
 ../../city.regions
 
 Sensors: # List of sensor propositions and their state (enabled = 1, disabled = 0)
-alice_policeStation2, 1
-alice_groceryStore, 1
-alice_square, 1
-alice_bridge, 1
-alice_tunnel, 1
-alice_postOffice, 1
-alice_park, 1
-alice_policeStation1, 1
+bob_postOffice, 1
+bob_park, 1
+bob_policeStation2, 1
+bob_bridge, 1
+bob_square, 1
+bob_groceryStore, 1
+bob_tunnel, 1
+bob_policeStation1, 1
 
 
 ======== SPECIFICATION ========
 
-Cost: # Transistion Weights in structured English
-
-
-GlobalSensors: # Sensors accessible by all robots
-
 OtherRobot: # The other robot in the same workspace
-alice
+bob
 
 RegionMapping: # Mapping between region names and their decomposed counterparts
 bridge = p9
@@ -65,14 +59,26 @@ others =
 groceryStore = p8
 
 Spec: # Specification in structured English
-Robot starts in groceryStore
-Env starts with alice_bridge
+Robot starts in policeStation2
+Environment starts with bob_postOffice
 
-# Environment Assumptions
-if you were in groceryStore then do not alice_square
-if you were in square then do not alice_tunnel
-if you were in tunnel then do not alice_park
-if you were in park then do not alice_postOffice
+# env goals #
+#infinitely often bob_policeStation2
+#infinitely often bob_groceryStore
+#infinitely often bob_policeStation1
+#infinitely often bob_postOffice
 
-visit postOffice
+# env assumptions #
+if you were in policeStation1 then do not bob_park
+if you were in postOffice then do not bob_park
+if you were in park then do not (bob_tunnel or bob_bridge or bob_policeStation1)
+if you were in tunnel then do not (bob_park or bob_square)
+if you were in bridge then do not (bob_park or bob_square)
+if you were in square then do not (bob_tunnel or bob_bridge or bob_policeStation2)
+if you were in groceryStore then do not bob_square
+if you were in policeStation2 then do not bob_square
+
+# system goals #
+visit policeStation1
+visit policeStation2
 

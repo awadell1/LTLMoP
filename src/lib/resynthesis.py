@@ -968,6 +968,8 @@ class ExecutorResynthesisExtensions(object):
         self.spec['EnvInit'] = "(" + current_env_init_state.replace("\t", "").replace("\n", "").replace(" ", "") + ")"
         self.spec["SysInit"] = "(" + current_sys_init_state.replace("\t", "").replace("\n", "").replace(" ", "") + ")"
 
+        return
+
     def recreateLTLfile(self, proj, spec = None , export = False):
         """
         rewrite the LTL file with the modified spec

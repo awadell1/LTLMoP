@@ -8,18 +8,19 @@ Actions: # List of action propositions and their state (enabled = 1, disabled = 
 
 CompileOptions:
 neighbour_robot: True
-convexify: True
-parser: structured
-symbolic: False
-use_region_bit_encoding: True
-multi_robot_mode: negotiation
-cooperative_gr1: True
-fastslow: False
-only_realizability: False
 recovery: True
+convexify: True
+symbolic: False
+parser: structured
 include_heading: False
 winning_livenesses: False
+use_region_bit_encoding: True
+multi_robot_mode: negotiation
 synthesizer: slugs
+cooperative_gr1: True
+fastslow: False
+optimal: none
+only_realizability: False
 decompose: True
 interactive: True
 
@@ -43,6 +44,9 @@ alice_policeStation1, 1
 
 
 ======== SPECIFICATION ========
+
+Cost: # Transistion Weights in structured English
+
 
 GlobalSensors: # Sensors accessible by all robots
 

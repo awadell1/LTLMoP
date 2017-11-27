@@ -17,15 +17,15 @@ winning_livenesses: False
 use_region_bit_encoding: True
 multi_robot_mode: negotiation
 synthesizer: slugs
-cooperative_gr1: True
+cooperative_gr1: False
 fastslow: False
-optimal: none
+optimal: twodim
 only_realizability: False
 decompose: True
 interactive: False
 
 CurrentConfigName:
-bob
+alice
 
 Customs: # List of custom propositions
 
@@ -33,25 +33,41 @@ RegionFile: # Relative path of region description file
 ../../city.regions
 
 Sensors: # List of sensor propositions and their state (enabled = 1, disabled = 0)
-alice_policeStation2, 1
-alice_groceryStore, 1
-alice_square, 1
-alice_bridge, 1
-alice_tunnel, 1
-alice_postOffice, 1
-alice_park, 1
-alice_policeStation1, 1
+bob_policeStation2, 1
+bob_groceryStore, 1
+bob_bridge, 1
+bob_tunnel, 1
+bob_postOffice, 1
+bob_park, 1
+bob_policeStation1, 1
+bob_square, 1
 
 
 ======== SPECIFICATION ========
 
 Cost: # Transistion Weights in structured English
-
+1 0 >
+1.0 square & next(groceryStore)
+1.0 groceryStore & next(square)
+2.0 square & next(tunnel)
+2.0 tunnel & next(square)
+2.0 square & next(bridge)
+2.0 bridge & next(square)
+4.0 square & next(policeStation2)
+4.0 policeStation2 & next(square)
+1.0 park & next(policeStation1)
+1.0 policeStation1 & next(park)
+2.0 park & next(tunnel)
+2.0 tunnel & next(park)
+2.0 park & next(bridge)
+2.0 bridge & next(park)
+1.0 park & next(postOffice)
+1.0 postOffice & next(park)
 
 GlobalSensors: # Sensors accessible by all robots
 
 OtherRobot: # The other robot in the same workspace
-alice
+bob
 
 RegionMapping: # Mapping between region names and their decomposed counterparts
 bridge = p9
@@ -65,14 +81,12 @@ others =
 groceryStore = p8
 
 Spec: # Specification in structured English
-Robot starts in groceryStore
-Env starts with alice_bridge
+Robot starts in bridge
+Env starts with bob_groceryStore
 
 # Environment Assumptions
-if you were in groceryStore then do not alice_square
-if you were in square then do not alice_tunnel
-if you were in tunnel then do not alice_park
-if you were in park then do not alice_postOffice
+if you were in bridge then do not bob_square
+if you were in square then do not bob_groceryStore
 
-visit postOffice
+visit groceryStore
 

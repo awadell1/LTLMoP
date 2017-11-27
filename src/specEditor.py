@@ -1274,6 +1274,7 @@ class SpecEditorFrame(wx.Frame):
             busy_dialog.Destroy()
             return
 
+        keep_going = True
         while not compiler.synthesis_complete.isSet():
             # Keep the progress bar spinning and check if the Abort button has been pressed
             keep_going = busy_dialog.UpdatePulse()[0]

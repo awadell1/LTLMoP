@@ -92,6 +92,7 @@ class TwoDimensional(CostSpec):
         :type internal_props: list
         :return: An update list of internal propositions
         """
+
         # Add in required internal propositions if not already added
         for p in ['_l_a_c_v_1', '_is_infty_cost_Pre']:
             if p not in internal_props:

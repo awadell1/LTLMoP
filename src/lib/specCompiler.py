@@ -340,7 +340,6 @@ class SpecCompiler(object):
                         LTLspec_sys = re.sub('\\b(?:e\.)?' + r.name+"_rc" + '\\b' , "e."+r.name+"_rc", LTLspec_sys)
 
             traceback = [] # HACK: needs to be something other than None
-
         elif self.proj.compile_options["parser"] == "structured":
             import parseEnglishToLTL
 

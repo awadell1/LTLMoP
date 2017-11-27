@@ -7,22 +7,13 @@
 Actions: # List of action propositions and their state (enabled = 1, disabled = 0)
 
 CompileOptions:
-neighbour_robot: True
-recovery: True
 convexify: True
-symbolic: False
 parser: structured
-include_heading: False
-winning_livenesses: False
+symbolic: False
 use_region_bit_encoding: True
-multi_robot_mode: negotiation
 synthesizer: slugs
-cooperative_gr1: True
 fastslow: False
-optimal: none
-only_realizability: False
 decompose: True
-interactive: True
 
 CurrentConfigName:
 alice
@@ -33,44 +24,53 @@ RegionFile: # Relative path of region description file
 ../../city.regions
 
 Sensors: # List of sensor propositions and their state (enabled = 1, disabled = 0)
-bob_policeStation2, 1
-bob_groceryStore, 1
-bob_bridge, 1
-bob_tunnel, 1
 bob_postOffice, 1
 bob_park, 1
-bob_policeStation1, 1
+bob_policeStation2, 1
+bob_bridge, 1
 bob_square, 1
+bob_groceryStore, 1
+bob_tunnel, 1
+bob_policeStation1, 1
+letter_p1, 1
+letter_p2, 1
+letter_g, 1
 
 
 ======== SPECIFICATION ========
-
-Cost: # Transistion Weights in structured English
-
-
-GlobalSensors: # Sensors accessible by all robots
 
 OtherRobot: # The other robot in the same workspace
 bob
 
 RegionMapping: # Mapping between region names and their decomposed counterparts
-bridge = p9
+bridge = p10
 square = p2
 policeStation1 = p6
 policeStation2 = p5
 tunnel = p1
-park = p7
+park = p8
 postOffice = p4
 others = 
-groceryStore = p8
+groceryStore = p9
 
 Spec: # Specification in structured English
-Robot starts in bridge
-Env starts with bob_groceryStore
+Robot starts in policeStation2
+Environment starts with bob_postOffice
 
-# Environment Assumptions
-if you were in bridge then do not bob_square
-if you were in square then do not bob_groceryStore
+# env goals #
+#infinitely often bob_policeStation2
+#infinitely often bob_groceryStore
+#infinitely often bob_policeStation1
+#infinitely often bob_postOffice
 
-visit groceryStore
+# env assumptions #
+if you were in policeStation1 then do not bob_park
+if you were in park then do not (bob_tunnel or bob_bridge or bob_policeStation1)
+if you were in tunnel then do not (bob_park or bob_square)
+if you were in bridge then do not (bob_park or bob_square)
+if you were in square then do not (bob_tunnel or bob_bridge or bob_policeStation2)
+if you were in policeStation2 then do not bob_square
+
+# system goals #
+visit policeStation2
 

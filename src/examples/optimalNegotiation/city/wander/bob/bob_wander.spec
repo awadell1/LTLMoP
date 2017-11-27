@@ -17,9 +17,9 @@ winning_livenesses: False
 use_region_bit_encoding: True
 multi_robot_mode: negotiation
 synthesizer: slugs
-cooperative_gr1: True
+cooperative_gr1: False
 fastslow: False
-optimal: none
+optimal: twodim
 only_realizability: False
 decompose: True
 interactive: False
@@ -46,7 +46,23 @@ alice_policeStation1, 1
 ======== SPECIFICATION ========
 
 Cost: # Transistion Weights in structured English
-
+1 0 <
+1.0 square & next(groceryStore)
+1.0 groceryStore & next(square)
+2.0 square & next(tunnel)
+2.0 tunnel & next(square)
+2.0 square & next(bridge)
+2.0 bridge & next(square)
+4.0 square & next(policeStation2)
+4.0 policeStation2 & next(square)
+1.0 park & next(policeStation1)
+1.0 policeStation1 & next(park)
+2.0 park & next(tunnel)
+2.0 tunnel & next(park)
+2.0 park & next(bridge)
+2.0 bridge & next(park)
+1.0 park & next(postOffice)
+1.0 postOffice & next(park)
 
 GlobalSensors: # Sensors accessible by all robots
 
