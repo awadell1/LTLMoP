@@ -8,6 +8,7 @@ class AbstractCostSpec(object):
         :param proj: A Project Object
         :type proj: project.Project
         :param cost_text: The plain-text cost entry from a *.spec file
+        :type cost_text:st
         """
         self.proj = proj
         self.cost_text = cost_text

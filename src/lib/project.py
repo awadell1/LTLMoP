@@ -240,7 +240,11 @@ class Project:
                     "FILE_HEADER": "This is a specification definition file for the LTLMoP toolkit.\n" +
                                    "Format details are described at the beginning of each section below.",
                     "Actions": "List of action propositions and their state (enabled = 1, disabled = 0)",
-                    "Cost": "Transistion Weights in structured English",
+                    "Cost": "Transition Weights in structured English\n" +
+                            "# The first line must be of the format: c_d c_t pref\n"+
+                            "# \tc_d: The delay cost factor\n"+
+                            "# \tc_t: The transistion cost factor\n"+
+                            "# \tpref: A cost preference, where > prefers not waiting and < prefers not moving\n",
                     "Customs": "List of custom propositions",
                     "GlobalSensors": "Sensors accessible by all robots",
                     "OtherRobot": "The other robot in the same workspace",
