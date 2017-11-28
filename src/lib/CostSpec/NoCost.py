@@ -1,7 +1,7 @@
-from CostSpec import CostSpec
+from CostSpec import AbstractCostSpec
 
 
-class NoCost(CostSpec):
+class NoCost(AbstractCostSpec):
     """
     Default CostSpec indicating no cost
     """

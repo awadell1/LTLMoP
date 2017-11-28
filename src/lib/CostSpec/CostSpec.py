@@ -1,4 +1,4 @@
-class CostSpec:
+class AbstractCostSpec(object):
     """
     DO NO instantiate
     """
@@ -73,3 +73,17 @@ class CostSpec:
             formula = formula.replace(outProp, "s."+ outProp)
 
         return formula
+
+def loadCostSpec(cost_spec_name):
+    """
+    Returns the AbstractCostSpec subclass mapped to cost_spec_name
+    :param cost_spec_name: The name of the CostSpec subclass
+    :type cost_spec_name: str
+    :return A AbstractCostSpec subclass
+    """
+    if cost_spec_name == 'none':
+        from NoCost import NoCost
+        return NoCost
+    elif cost_spec_name == 'twodim':
+        from TwoDimensional import TwoDimensional
+        return TwoDimensional

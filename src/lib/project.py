@@ -19,6 +19,7 @@ import re
 # logger for ltlmop
 import logging
 ltlmop_logger = logging.getLogger('ltlmop_logger')
+import CostSpec
 
 class Project:
     """
@@ -162,19 +163,14 @@ class Project:
         except KeyError:
             ltlmop_logger.warning("Specification text undefined")
 
+        # Load in CostSpec Object and update internal propositions
         if 'Cost' in spec_data['SPECIFICATION']:
-            cost_type = self.compile_options['optimal']
             cost_text = '\n'.join(spec_data['SPECIFICATION']['Cost'])
-            if cost_type == 'none':
-                from NoCost import NoCost
-                self.cost_spec = NoCost(self, cost_text)
-            elif cost_type == 'twodim':
-                from TwoDimensional import TwoDimensional
-                self.cost_spec = TwoDimensional(self, cost_text)
+            cost_obj = CostSpec.loadCostSpec(self.compile_options['optimal'])
         else:
             # Default to no cost
-            from NoCost import NoCost
-            self.cost_spec = NoCost(self, '')
+            cost_obj = CostSpec.loadCostSpec('none')
+        self.cost_spec = cost_obj(self, cost_text)
 
         # Append Internal Propositions needed by cost_spec
         self.internal_props = self.cost_spec.append_internal_propositions(self.internal_props)

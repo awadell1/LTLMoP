@@ -1,4 +1,4 @@
-from CostSpec import CostSpec
+from CostSpec import AbstractCostSpec
 import math
 import re
 from translateFromLTLMopLTLFormatToSlugsFormat import parseLTL, parseSimpleFormula
@@ -6,7 +6,7 @@ from parseEnglishToLTL import bitEncoding, replaceRegionName
 from specCompiler import SpecCompiler
 
 
-class TwoDimensional(CostSpec):
+class TwoDimensional(AbstractCostSpec):
 
     def write_cost_file(self, filename, compiler):
         """
