@@ -1361,7 +1361,7 @@ class SpecEditorFrame(wx.Frame):
         #self.text_ctrl_log.EndBold()
         self.text_ctrl_log.EndTextColour()
         self.text_ctrl_log.ShowPosition(self.text_ctrl_log.GetLastPosition())
-        wx.GetApp().Yield(True) # Ensure update
+        #wx.GetApp().Yield(True) # Ensure update
 
     def onMenuSimulate(self, event): # wxGlade: SpecEditorFrame.<event_handler>
         """ Run the simulation with current experiment configuration. """
@@ -1963,12 +1963,6 @@ if __name__ == "__main__":
     if args.compile:
         frame_1.onMenuCompile(None)
     if args.simulate:
-        frame_1.onMenuSimulate(None)
-
-    if len(sys.argv) > 2 and sys.argv[2] == '-c':
-        frame_1.onMenuCompile(None)
-
-    if len(sys.argv) > 3 and sys.argv[3] == '-r':
         frame_1.onMenuSimulate(None)
 
     SpecEditor.MainLoop()
