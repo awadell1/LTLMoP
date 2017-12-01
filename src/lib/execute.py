@@ -88,18 +88,20 @@ def usage(script_name):
     """ Print command-line usage information. """
 
     print textwrap.dedent("""\
-                              Usage: %s [-hn] [-p listen_port] [-a automaton_file] [-s spec_file]
+                              Usage: %s [-hnf] [-p listen_port] [-a automaton_file] [-s spec_file]
 
                               -h, --help:
                                   Display this message
                               -n, --no-gui:
                                   Do not show status/control window
+                              -f , --fastStart
+                                  Automatically start the automaton
                               -p PORT, --xmlrpc-listen-port PORT:
                                   Listen on PORT for XML-RPC calls
                               -a FILE, --aut-file FILE:
                                   Load automaton from FILE
                               -s FILE, --spec-file FILE:
-                                  Load experiment configuration from FILE """ % script_name)
+                                  Load experiment configuration from FILE""" % script_name)
 
 class LTLMoPExecutor(ExecutorStrategyExtensions, ExecutorResynthesisExtensions, ExecutorModesExtensions, ExecutorPatchingExtensions, ExecutorDecentralizedPatchingExtensions, object):
     """
@@ -359,7 +361,7 @@ class LTLMoPExecutor(ExecutorStrategyExtensions, ExecutorResynthesisExtensions, 
 
         self.externalEventTargetRegistered.set()
 
-    def initialize(self, spec_file, strategy_file, firstRun=True):
+    def initialize(self, spec_file, strategy_file, firstRun=True, fastStart=False):
         """
         Prepare for execution, by loading and initializing all the relevant files (specification, map, handlers, strategy)
         If `firstRun` is true, all handlers will be imported; otherwise, only the motion control handler will be reloaded.
@@ -424,9 +426,14 @@ class LTLMoPExecutor(ExecutorStrategyExtensions, ExecutorResynthesisExtensions, 
         new_strategy = self.loadAutFile(strategy_file)
 
         if firstRun:
-            ### Wait for the initial start command
-            ltlmop_logger.info("Ready.  Press [Start] to begin...")
-            self.runStrategy.wait()
+            if not fastStart:
+                ### Wait for the initial start command
+                ltlmop_logger.info("Ready.  Press [Start] to begin...")
+                self.runStrategy.wait()
+            else:
+                ### Auto Start the Robot ###
+                ltlmop_logger.info("Ready. Starting now...")
+                self.runStrategy.set()
 
         ######## ENV Assumption Learning ###########
         if firstRun:
@@ -1235,7 +1242,7 @@ class RedirectText:
 # Main function, run when called from command-line #
 ####################################################
 
-def execute_main(listen_port=None, spec_file=None, aut_file=None, show_gui=False):
+def execute_main(listen_port=None, spec_file=None, aut_file=None, show_gui=False, fastStart=False):
     ltlmop_logger.info("Hello. Let's do this!")
 
     # Create the XML-RPC server
@@ -1279,7 +1286,10 @@ def execute_main(listen_port=None, spec_file=None, aut_file=None, show_gui=False
             # Tell executor to load spec & aut
             #if aut_file is None:
             #    aut_file = spec_file.rpartition('.')[0] + ".aut"
-            e.initialize(spec_file, aut_file, firstRun=True)
+            e.initialize(spec_file, aut_file, firstRun=True, fastStart=fastStart)
+
+        # Set as live
+        e.runStrategy.set()
 
         # Start the executor's main loop in this thread
         e.run()
@@ -1306,28 +1316,46 @@ if __name__ == "__main__":
     show_gui = True
     listen_port = None
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "hnp:a:s:", ["help", "no-gui", "xmlrpc-listen-port=", "aut-file=", "spec-file="])
-    except getopt.GetoptError:
-        ltlmop_logger.exception("Bad arguments")
-        usage(sys.argv[0])
-        sys.exit(2)
+    # Define Command line Arguments
+    import argparse
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument('-n', '--no-gui', action='store_true', default=False)
+    arg_parser.add_argument('-p', '--port', action='store_true', default=None)
+    arg_parser.add_argument('-a', '--aut-file', default=None)
+    arg_parser.add_argument('-s', '--spec-file', default=None)
+    arg_parser.add_argument('-f', '--fastStart', action='store_true', default=False)
+    args = arg_parser.parse_args()
 
-    for opt, arg in opts:
-        if opt in ("-h", "--help"):
-            usage(sys.argv[0])
-            sys.exit()
-        elif opt in ("-n", "--no-gui"):
-            show_gui = False
-        elif opt in ("-p", "--xmlrpc-listen-port"):
-            try:
-                listen_port = int(arg)
-            except ValueError:
-                ltlmop_logger.error("Invalid port '{}'".format(arg))
-                sys.exit(2)
-        elif opt in ("-a", "--aut-file"):
-            aut_file = arg
-        elif opt in ("-s", "--spec-file"):
-            spec_file = arg
+    show_gui = not args.no_gui
+    listen_port = args.port
+    aut_file = args.aut_file
+    spec_file = args.spec_file
+    fastStart = args.fastStart
 
-    execute_main(listen_port, spec_file, aut_file, show_gui)
+    # try:
+    #     opts, args = getopt.getopt(sys.argv[1:], "hnp:a:s:", ["help", "no-gui", "xmlrpc-listen-port=", "aut-file=", "spec-file=", 'fastStart'])
+    # except getopt.GetoptError:
+    #     ltlmop_logger.exception("Bad arguments")
+    #     usage(sys.argv[0])
+    #     sys.exit(2)
+    #
+    # for opt, arg in opts:
+    #     if opt in ("-h", "--help"):
+    #         usage(sys.argv[0])
+    #         sys.exit()
+    #     elif opt in ("-n", "--no-gui"):
+    #         show_gui = False
+    #     elif opt in ("-p", "--xmlrpc-listen-port"):
+    #         try:
+    #             listen_port = int(arg)
+    #         except ValueError:
+    #             ltlmop_logger.error("Invalid port '{}'".format(arg))
+    #             sys.exit(2)
+    #     elif opt in ("-a", "--aut-file"):
+    #         aut_file = arg
+    #     elif opt in ("-s", "--spec-file"):
+    #         spec_file = arg
+    #     elif opt in ('-f', '--fastStart'):
+    #         fastStart = arg
+
+    execute_main(listen_port, spec_file, aut_file, show_gui, fastStart)

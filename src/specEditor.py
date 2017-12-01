@@ -28,6 +28,9 @@ while t != "src":
 sys.path.append(os.path.join(p,"src","lib"))
 sys.path.append(os.path.join(p,"lib","cores"))
 
+# Flag to quickly start the simulation
+fastStart = False
+
 from regions import *
 import project
 import strategy
@@ -1391,7 +1394,12 @@ class SpecEditorFrame(wx.Frame):
         sys.stdout = redir
         sys.stderr = redir
 
-        subprocess.Popen([sys.executable, "-u", "-m", "lib.execute", "-a", self.proj.getStrategyFilename(), "-s", self.proj.getFilenamePrefix() + ".spec"])
+        cmd = [sys.executable, "-u", "-m", "lib.execute",
+               "-a", self.proj.getStrategyFilename(),
+               "-s", self.proj.getFilenamePrefix() + ".spec"]
+        if fastStart:
+            cmd.append('-f')
+        subprocess.Popen(cmd)
 
         sys.stdout = sys.__stdout__
         sys.stderr = sys.__stderr__
@@ -1952,14 +1960,16 @@ if __name__ == "__main__":
 
     # Define Command line Arguments
     arg_parser = argparse.ArgumentParser(description='Tool for synthesizing provably correct controllers')
-    arg_parser.add_argument('-c', '--compile', action='store_true')
-    arg_parser.add_argument('-s', '--simulate', action='store_true')
+    arg_parser.add_argument('-c', '--compile', action='store_true', default=False)
+    arg_parser.add_argument('-s', '--simulate', action='store_true', default=False)
+    arg_parser.add_argument('-f', '--fastStart', action='store_true', default=False)
     arg_parser.add_argument('filename', nargs='?', default=None)
     args = arg_parser.parse_args()
 
     # Parse Arguments
     if args.filename is not None:
         frame_1.openFile(args.filename)
+    fastStart = args.fastStart
     if args.compile:
         frame_1.onMenuCompile(None)
     if args.simulate:
