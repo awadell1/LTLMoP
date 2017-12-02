@@ -1219,7 +1219,7 @@ class SpecEditorFrame(wx.Frame):
         # TODO: what about removing old ones?
         for p in compiler.proj.internal_props:
             if p not in self.list_box_customs.GetItems():
-                self.list_box_customs.AppendAndEnsureVisible(p)
+                self.list_box_customs.AppendAndEnsureVisible(str(p))
 
         # Add any auto-generated sensor propositions to the list
         for s in compiler.proj.enabled_sensors:

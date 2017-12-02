@@ -180,7 +180,7 @@ class SpecCompiler(object):
             else:
                 numRegions = len(self.proj.rfi.regions)
         sensorList = self.proj.enabled_sensors
-        robotPropList = self.proj.enabled_actuators + self.proj.all_customs + self.proj.internal_props
+        robotPropList = self.proj.enabled_actuators + self.proj.all_customs
 
         if self.proj.rfi:
             # Add in regions as robot outputs

@@ -517,7 +517,7 @@ class LTLMoPExecutor(ExecutorStrategyExtensions, ExecutorResynthesisExtensions, 
             self.hsub.initializeAllMethods()
 
             # save the initial values of the actuators and the custom propositions
-            for prop in self.proj.enabled_actuators + self.proj.all_customs + self.proj.internal_props:
+            for prop in self.proj.enabled_actuators + self.proj.all_customs:
                 self.current_outputs[prop] = (prop in self.hsub.executing_config.initial_truths)
 
         init_prop_assignments.update(self.current_outputs)

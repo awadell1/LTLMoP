@@ -15,6 +15,7 @@ import sys
 import collections
 import copy
 import globalConfig
+from AtomicProp import AtomicRegex
 
 # logger for ltlmop
 import logging
@@ -286,8 +287,14 @@ class State(object):
 
             If `expand_domains` is True, return only the binary subpropositions
             for domains instead of the usual multivalent proposition. """
-
-        prop_values = {p: self.getPropValue(p) for p in names}
+        prop_values = {}
+        for name in names:
+            if not isinstance(name, str):
+                for a in self.assignment:
+                    if name == a: prop_values[a] = self.assignment[a]
+            else:
+                prop_values[name] = self.getPropValue(name)
+        #prop_values = {p: self.getPropValue(p) for p in names}
 
         # If expand_domains is True, replace all domain propositions in the
         # return dictionary with their subpropositions
@@ -308,6 +315,7 @@ class State(object):
         #    just return its value directly
         if name in self.assignment:
             return self.assignment[name]
+
 
         # 2) If this is the name of a domain for which we only have the
         #    subpropositions, try to upconvert the subpropositions to a single
@@ -368,7 +376,7 @@ class State(object):
         for prop_name, prop_value in prop_assignments.iteritems():
             self.setPropValue(prop_name, prop_value)
 
-    def getLTLRepresentation(self, mark_players=True, use_next=False, include_inputs=True, include_outputs=True, swap_players=False):
+    def getLTLRepresentation(self, mark_players=True, use_next=False, include_inputs=True, include_outputs=True, swap_players=False, exclude=[]):
         """ Returns an LTL formula representing this state.
 
             If `mark_players` is True, input propositions are prepended with
@@ -401,8 +409,11 @@ class State(object):
             env_label, sys_label = "e.", "s."
 
         if include_outputs:
-        	sys_state = " & ".join((decorate_prop(sys_label+p, v) for p, v in \
-                                self.getOutputs(expand_domains=True).iteritems()))
+            sys = []
+            for p, v in self.getOutputs(expand_domains=True).iteritems():
+                if p not in exclude:
+                    sys.append(decorate_prop(sys_label+p, v))
+            sys_state = ' & '.join(sys)
 
         if include_inputs:
             env_state = " & ".join((decorate_prop(env_label+p, v) for p, v in \

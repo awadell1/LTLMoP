@@ -4,7 +4,7 @@ import re
 from translateFromLTLMopLTLFormatToSlugsFormat import parseLTL, parseSimpleFormula
 from parseEnglishToLTL import bitEncoding, replaceRegionName
 from specCompiler import SpecCompiler
-
+from AtomicProp import AtomicRegex, AtomicProp
 
 class TwoDimensional(AbstractCostSpec):
 
@@ -94,7 +94,7 @@ class TwoDimensional(AbstractCostSpec):
         """
 
         # Add in required internal propositions if not already added
-        for p in ['_l_a_c_v_1', '_is_infty_cost_Pre']:
+        for p in [AtomicRegex(r'_l_a_c_v_\d'), AtomicProp('_is_infty_cost_Pre'), AtomicProp('_is_infty_cost_Post')]:
             if p not in internal_props:
                 internal_props.append(p)
 

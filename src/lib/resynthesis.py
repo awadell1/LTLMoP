@@ -13,6 +13,7 @@ import wx
 import time, sys, math
 import LTLParser.LTLcheck
 import parseEnglishToLTL
+from AtomicProp import AtomicPropSet
 import executeStrategy
 ######################################
 # -------- two_robot_negotiation ----#
@@ -943,7 +944,11 @@ class ExecutorResynthesisExtensions(object):
 
         else:
             # find the current inputs and outputs from strategy and replace region_b
-            current_sys_init_state  = self.strategy.current_state.getLTLRepresentation(mark_players=True, use_next=False, include_inputs=False, include_outputs=True)
+            current_sys_init_state  = self.strategy.current_state.getLTLRepresentation(mark_players=True,
+                                                                                       use_next=False,
+                                                                                       include_inputs=False,
+                                                                                       include_outputs=True,
+                                                                                       exclude=AtomicPropSet(self.proj.internal_props))
 
             # if using fastslow set env init bits to be the same as sys init bits
             if self.proj.compile_options['fastslow'] and hasattr(self.proj.rfi, 'regions'):
