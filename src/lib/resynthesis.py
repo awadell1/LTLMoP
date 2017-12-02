@@ -696,6 +696,10 @@ class ExecutorResynthesisExtensions(object):
                     aut_file = self.proj.getFilenamePrefix() + ".aut"
                     self.initialize(spec_file, aut_file, firstRun=False)
 
+                    # Wait for other robot to resolve violation
+                    while not self.simple_check_envTrans_violation():
+                        time.sleep(0.5)
+
                 else:
                     self.postEvent('NEGO','Unrealizable with exchanged info. Asking the other robot to incorporate our actions instead.')
                     self.robClient.setNegotiationStatus("'" + conflictingRobots[0] + "'")
