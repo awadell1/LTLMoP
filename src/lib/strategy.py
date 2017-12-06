@@ -15,7 +15,7 @@ import sys
 import collections
 import copy
 import globalConfig
-from AtomicProp import AtomicRegex
+from AbstractSyntaxTree import AtomicRegex
 
 # logger for ltlmop
 import logging

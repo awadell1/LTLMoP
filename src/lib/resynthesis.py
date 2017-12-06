@@ -13,7 +13,7 @@ import wx
 import time, sys, math
 import LTLParser.LTLcheck
 import parseEnglishToLTL
-from AtomicProp import AtomicPropSet
+from AbstractSyntaxTree import AtomicPropSet
 import executeStrategy
 ######################################
 # -------- two_robot_negotiation ----#
