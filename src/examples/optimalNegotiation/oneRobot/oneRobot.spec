@@ -8,14 +8,22 @@ Actions: # List of action propositions and their state (enabled = 1, disabled = 
 sad, 1
 
 CompileOptions:
-synthesizer: slugs
-fastslow: False
+neighbour_robot: False
+recovery: False
 convexify: True
-optimal: twodim
-parser: structured
 symbolic: False
-decompose: True
+parser: structured
+include_heading: False
+winning_livenesses: False
 use_region_bit_encoding: True
+multi_robot_mode: negotiation
+synthesizer: slugs
+cooperative_gr1: False
+fastslow: False
+optimal: twodim
+only_realizability: False
+decompose: True
+interactive: False
 
 CurrentConfigName:
 Basic Simulation
@@ -32,9 +40,18 @@ isLine, 1
 
 ======== SPECIFICATION ========
 
-Cost: # Transistion Weights in structured English
+Cost: # Transition Weights in structured English
+# The first line must be of the format: c_d c_t pref
+# 	c_d: The delay cost factor
+# 	c_t: The transistion cost factor
+# 	pref: A cost preference, where > prefers not waiting and < prefers not moving
+
 0 1 >
 2.0 collegetown & isSnow
+
+GlobalSensors: # Sensors accessible by all robots
+
+OtherRobot: # The other robot in the same workspace
 
 RegionMapping: # Mapping between region names and their decomposed counterparts
 office = p4

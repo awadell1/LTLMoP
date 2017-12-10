@@ -151,7 +151,7 @@ class FSAStrategy(strategy.Strategy):
         """ Return a list of states that can be reached from `from_state`
             and satisfy `prop_assignments`.  If `from_state` is omitted,
             the strategy's current state will be used. """
-
+        print 'hey'
         if from_state is None:
             if self.current_state is None:
                 raise ValueError("You must specify from_state if no current_state is set.")

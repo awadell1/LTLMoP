@@ -45,16 +45,21 @@ bob_square, 1
 
 ======== SPECIFICATION ========
 
-Cost: # Transistion Weights in structured English
-1 0 >
+Cost: # Transition Weights in structured English
+# The first line must be of the format: c_d c_t pref
+# 	c_d: The delay cost factor
+# 	c_t: The transistion cost factor
+# 	pref: A cost preference, where > prefers not waiting and < prefers not moving
+
+1 1 <
 1.0 square & next(groceryStore)
 1.0 groceryStore & next(square)
 2.0 square & next(tunnel)
 2.0 tunnel & next(square)
 2.0 square & next(bridge)
 2.0 bridge & next(square)
-4.0 square & next(policeStation2)
-4.0 policeStation2 & next(square)
+1.0 square & next(policeStation2)
+1.0 policeStation2 & next(square)
 1.0 park & next(policeStation1)
 1.0 policeStation1 & next(park)
 2.0 park & next(tunnel)
@@ -87,6 +92,7 @@ Env starts with bob_groceryStore
 # Environment Assumptions
 if you were in bridge then do not bob_square
 if you were in square then do not bob_groceryStore
+
 
 visit groceryStore
 

@@ -256,7 +256,7 @@ class Project:
 
         fileMethods.writeToFile(filename, data, comments)
 
-    def mappedRegion(self, regionName, prefix, orSymbol=' | '):
+    def mappedRegion(self, regionName, prefix='', orSymbol=' | '):
         """
         Returns an LTL fragment for the decomposed regions that are mapped to region
         :param regionName: The name of the region that was decomposed (str)

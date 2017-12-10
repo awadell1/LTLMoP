@@ -553,7 +553,7 @@ class ExecutorResynthesisExtensions(object):
         ltlmop_logger.log(4, "self.receivedSpec:" + str(self.receivedSpec))
 
         # Hack need to wait for other robot to clear violation before aborting
-        if (not self.exchangedSpec[conflictingRobots[0]] or not self.receivedSpec[conflictingRobots[0]]) or True:
+        if (not self.exchangedSpec[conflictingRobots[0]] or not self.receivedSpec[conflictingRobots[0]]):
             # make resynthesis with recovery
             #self.recovery = True
             #self.proj.compile_options['recovery'] = True
@@ -635,7 +635,7 @@ class ExecutorResynthesisExtensions(object):
         else:
             self.postEvent('NEGO','I have negotiated with ' + conflictingRobots[0] + ' before. Negotiation failed')
             self.postEvent('NEGO','-- NEGOTIATION ENDED --')
-            sys.exit()
+            #sys.exit()
 
 
     def receiveRequestFromEnvRobot(self):
@@ -655,7 +655,7 @@ class ExecutorResynthesisExtensions(object):
                 ltlmop_logger.error('Currently not support negotiation with more than two robots!' + str(conflictingRobots))
 
             # Hack: Need to wait for other robot to clear violation before aborting
-            if (not self.exchangedSpec[conflictingRobots[0]] or not self.receivedSpec[conflictingRobots[0]]) or True:
+            if (not self.exchangedSpec[conflictingRobots[0]] or not self.receivedSpec[conflictingRobots[0]]):
                 # also reset env characterization
                 self.resetEnvCharacterization() # reset env characterization both ways
 
@@ -690,6 +690,11 @@ class ExecutorResynthesisExtensions(object):
                     self.robClient.setViolationTimeStamp(self.violationTimeStamp)
                     ltlmop_logger.debug('Resetting violation timeStamp')
                     time.sleep(1)
+
+                    # Clear Internal Output Propositions
+                    for p in self.current_outputs:
+                        if p in self.proj.internal_props:
+                            self.current_outputs[p] = False
 
                     # reinitialize automaton
                     spec_file = self.proj.getFilenamePrefix() + ".spec"
@@ -741,7 +746,7 @@ class ExecutorResynthesisExtensions(object):
             else:
                 self.postEvent('NEGO','I have negotiated with ' + conflictingRobots[0] + ' before. Negotiation failed')
                 self.postEvent('NEGO','-- NEGOTIATION ENDED --')
-                sys.exit()
+                #sys.exit()
                 return False
     # ------------------------------# 
     

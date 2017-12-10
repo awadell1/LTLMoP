@@ -1,1 +1,2 @@
 /home/alex/LTLMoP/src/etc/slugs/src/slugs --sysInitRoboticsSemantics --explicitStrategy '/home/alex/LTLMoP/src/examples/optimalNegotiation/city/wander/bob/bob_wander.slugsin' --twoDimensionalCost '/home/alex/LTLMoP/src/examples/optimalNegotiation/city/wander/bob/bob_wander.cost'
+/home/alex/LTLMoP/src/etc/slugs/src/slugs --sysInitRoboticsSemantics --explicitStrategy '/home/alex/LTLMoP/src/examples/optimalNegotiation/city/wander/bob/bob_wander.slugsin'

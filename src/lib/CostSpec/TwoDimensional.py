@@ -48,18 +48,9 @@ class TwoDimensional(AbstractCostSpec):
             entryRE = RE_ENTRY.search(line)
             value = entryRE.group(1)
             formula = entryRE.group(2)
-            newFormula = AbstractSyntaxTree(entryRE.group(2))
 
             # Replace region names in cost with decomposed region names
             formula = compiler._subDecompedRegion(formula)
-
-            newRegionList = dict()
-            for k, v in self.proj.regionMapping.iteritems():
-                if len(v) > 0:
-                    newRegionList[k] = regionList.index(v[0])
-
-            newFormula.mark_region(newRegionList)
-            binaryFormula = newFormula.binary_encoding(True)
 
             # Replace Formula with bit encoding
             formula = replaceRegionName(formula, bitEncode, regionList)

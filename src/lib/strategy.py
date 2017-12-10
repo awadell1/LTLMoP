@@ -278,8 +278,10 @@ class State(object):
     def satisfies(self, prop_assignments):
         """ Returns `True` iff the proposition settings in this state agree with all
             `prop_assignments`.  Any unspecified propositions are treated as don't-cares. """
-
-        return all((self.getPropValue(k) == v for k, v in prop_assignments.iteritems()))
+        for k, v in prop_assignments.iteritems():
+            if not self.getPropValue(k) == v:
+                return False
+        return True
 
     def getPropValues(self, names, expand_domains=False):
         """ Return a dictionary of assignments to the propositions in `names`

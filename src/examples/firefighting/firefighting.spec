@@ -11,22 +11,22 @@ radio, 1
 extinguish, 0
 
 CompileOptions:
-convexify: True
-cooperative_gr1: False
-decompose: True
-fastslow: False
-include_heading: False
-interactive: False
-multi_robot_mode: negotiation
 neighbour_robot: False
-only_realizability: False
-optimal: twodim
-parser: structured
 recovery: False
+convexify: True
 symbolic: False
-synthesizer: slugs
-use_region_bit_encoding: True
+parser: structured
+include_heading: False
 winning_livenesses: False
+use_region_bit_encoding: True
+multi_robot_mode: negotiation
+synthesizer: slugs
+cooperative_gr1: False
+fastslow: False
+optimal: twodim
+only_realizability: False
+decompose: True
+interactive: False
 
 CurrentConfigName:
 Basic Simulation
@@ -45,13 +45,18 @@ hazardous_item, 1
 
 ======== SPECIFICATION ========
 
+Cost: # Transition Weights in structured English
+# The first line must be of the format: c_d c_t pref
+# 	c_d: The delay cost factor
+# 	c_t: The transistion cost factor
+# 	pref: A cost preference, where > prefers not waiting and < prefers not moving
+
+1 0 <
+10.0 deck
+
 GlobalSensors: # Sensors accessible by all robots
 
 OtherRobot: # The other robot in the same workspace
-
-Cost: # Transistion Weights in structured English
-1 0 <
-10.0 deck
 
 RegionMapping: # Mapping between region names and their decomposed counterparts
 living = p4
