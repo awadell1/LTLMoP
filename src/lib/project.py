@@ -243,7 +243,7 @@ class Project:
                     "Cost": "Transition Weights in structured English\n" +
                             "# The first line must be of the format: c_d c_t pref\n"+
                             "# \tc_d: The delay cost factor\n"+
-                            "# \tc_t: The transistion cost factor\n"+
+                            "# \tc_t: The transition cost factor\n"+
                             "# \tpref: A cost preference, where > prefers not waiting and < prefers not moving\n",
                     "Customs": "List of custom propositions",
                     "GlobalSensors": "Sensors accessible by all robots",

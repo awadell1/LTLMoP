@@ -626,7 +626,13 @@ class LTLMoPExecutor(ExecutorStrategyExtensions, ExecutorResynthesisExtensions, 
             ltlmop_logger.debug('init_prop_assignments:' + str(init_prop_assignments))
             ltlmop_logger.debug("Current goal number is:" + current_goal_id)
 
-            init_state = new_strategy.searchForOneState(init_prop_assignments, goal_id=current_goal_id)
+            # Don't check internal properties
+            init_prop_temp = {}
+            for p in init_prop_assignments:
+                if p not in self.proj.internal_props:
+                    init_prop_temp[p] = init_prop_assignments[p]
+
+            init_state = new_strategy.searchForOneState(init_prop_temp, goal_id=current_goal_id)
 
         #for using get LTLRepresentation of current sensors
         self.sensor_strategy = new_strategy.states.addNewState()
