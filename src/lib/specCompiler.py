@@ -19,6 +19,7 @@ import strategy
 from copy import deepcopy
 from cores.coreUtils import *
 import handlerSubsystem
+import globalConfig
 
 from asyncProcesses import AsynchronousProcessThread
 
@@ -28,6 +29,12 @@ import copy
 # logger for ltlmop
 import logging
 ltlmop_logger = logging.getLogger('ltlmop_logger')
+
+# Timer
+if sys.platform in ['win32', 'cygwin']:
+    best_timer = time.clock
+else:
+    best_timer = time.time
 
 # Hack needed to ensure there's only one
 _SLURP_SPEC_GENERATOR = None
@@ -1231,9 +1238,13 @@ class SpecCompiler(object):
 
         log_string = StringIO.StringIO()
 
+        tic = globalConfig.best_timer()
+
         self._synthesizeAsync(log_function=log_string.write)
 
         self.synthesis_complete.wait()  # Block here until synthesis is done
+        toc = globalConfig.best_timer()
+        ltlmop_logger.info("Synthesized Strategy in {} seconds.".format(toc - tic))
 
         return (self.realizable, self.realizableFS, log_string.getvalue())
 
