@@ -1265,8 +1265,7 @@ class SpecEditorFrame(wx.Frame):
             wx.CallAfter(self.appendLog, "\t"+text)
 
         # Write Cost File
-        cost_filename = self.proj.getFilenamePrefix() + '.cost'
-        compiler.proj.cost_spec.write_cost_file(cost_filename, compiler)
+        compiler.proj.cost_spec.write_cost_file(compiler)
 
         # Kick off the synthesis
         try:
