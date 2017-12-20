@@ -18,22 +18,18 @@
       will also be opened for informational purposes.
 """
 
-import sys, os, getopt, textwrap
-import threading, subprocess, time
-import pdb, traceback
-
-# Climb the tree to find out where we are
-p = os.path.abspath(__file__)
-t = ""
-while t != "src":
-    (p, t) = os.path.split(p)
-    if p == "":
-        print "I have no idea where I am; this is ridiculous"
-        sys.exit(1)
-
-sys.path.append(os.path.join(p,"src","lib"))
-
-import fsa, project
+import sys
+import os
+import getopt
+import textwrap
+import argparse
+import threading
+import subprocess
+import time
+import pdb
+import traceback
+import fsa
+import project
 import handlerSubsystem
 import strategy
 from copy import deepcopy
@@ -49,40 +45,35 @@ from executeModes import ExecutorModesExtensions
 from executePatching import ExecutorPatchingExtensions
 from executeDecentralizedPatching import ExecutorDecentralizedPatchingExtensions
 import globalConfig
-
-# logger for ltlmop
 import logging
-ltlmop_logger = logging.getLogger('ltlmop_logger')
-
-###### ENV VIOLATION CHECK ######
 import copy
 import specCompiler
 
 import LTLParser.LTLcheck
 import logging
-import LTLParser.LTLFormula 
-#################################
-
-# -----------------------------------------#
-# -------- two_robot_negotiation ----------#
-# -----------------------------------------#
+import LTLParser.LTLFormula
 import negotiationMonitor.robotClient
-# -----------------------------------------#
-
-# ********* patching ************** #
-import itertools #for iterating props combination
-# ********************************* #
-
-# %%%%%%%%% d-patching %%%%%%%%%%% #
+import itertools
 import centralCoordinator.decentralizedPatchingExecutor
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% #
-
 import handlers.handlerTemplates as ht
 
+# Climb the tree to find out where we are
+p = os.path.abspath(__file__)
+t = ""
+while t != "src":
+    (p, t) = os.path.split(p)
+    if p == "":
+        print "I have no idea where I am; this is ridiculous"
+        sys.exit(1)
+
+sys.path.append(os.path.join(p, "src", "lib"))
+
+ltlmop_logger = logging.getLogger('ltlmop_logger')
 
 ####################
 # HELPER FUNCTIONS #
 ####################
+
 
 def usage(script_name):
     """ Print command-line usage information. """
@@ -102,6 +93,7 @@ def usage(script_name):
                                   Load automaton from FILE
                               -s FILE, --spec-file FILE:
                                   Load experiment configuration from FILE""" % script_name)
+
 
 class LTLMoPExecutor(ExecutorStrategyExtensions, ExecutorResynthesisExtensions, ExecutorModesExtensions, ExecutorPatchingExtensions, ExecutorDecentralizedPatchingExtensions, object):
     """
@@ -623,22 +615,24 @@ class LTLMoPExecutor(ExecutorStrategyExtensions, ExecutorResynthesisExtensions, 
             else:
                 current_goal_id = self.prev_z
 
-            ltlmop_logger.debug('init_prop_assignments:' + str(init_prop_assignments))
+            ltlmop_logger.debug(
+                'init_prop_assignments:' + str(init_prop_assignments))
             ltlmop_logger.debug("Current goal number is:" + current_goal_id)
 
-            # Don't check internal properties
+            # Internal Props states are not preserved -> Exclude from search
             init_prop_temp = {}
             for p in init_prop_assignments:
                 if p not in self.proj.internal_props:
                     init_prop_temp[p] = init_prop_assignments[p]
 
-            init_state = new_strategy.searchForOneState(init_prop_temp, goal_id=current_goal_id)
+            init_state = new_strategy.searchForOneState(
+                init_prop_temp,goal_id=current_goal_id)
 
-        #for using get LTLRepresentation of current sensors
+        # for using get LTLRepresentation of current sensors
         self.sensor_strategy = new_strategy.states.addNewState()
 
         # resynthesize if cannot find initial state
-        if init_state is None: 
+        if init_state is None:
 
             # check if execution is paused
             if not self.runStrategy.isSet():
@@ -652,7 +646,6 @@ class LTLMoPExecutor(ExecutorStrategyExtensions, ExecutorResynthesisExtensions, 
                 # wait for either the FSA to unpause or for termination
                 while (not self.runStrategy.wait(0.1)) and self.alive.isSet():
                     pass
-
 
             ltlmop_logger.debug('Finding init state failed.')
             for prop_name, value in self.hsub.getSensorValue(self.proj.enabled_sensors).iteritems():
@@ -1311,25 +1304,23 @@ def execute_main(listen_port=None, spec_file=None, aut_file=None, show_gui=False
         traceback.print_stack()
         pdb.post_mortem()
 
-
-### Command-line argument parsing ###
-
 if __name__ == "__main__":
-    ### Check command-line arguments
-
-    aut_file = None
-    spec_file = None
-    show_gui = True
-    listen_port = None
-
     # Define Command line Arguments
-    import argparse
+    
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('-n', '--no-gui', action='store_true', default=False)
-    arg_parser.add_argument('-p', '--port', action='store_true', default=None)
-    arg_parser.add_argument('-a', '--aut-file', default=None)
-    arg_parser.add_argument('-s', '--spec-file', default=None)
-    arg_parser.add_argument('-f', '--fastStart', action='store_true', default=False)
+    arg_parser.add_argument('-n', '--no-gui',
+                            action='store_true',
+                            default=False)
+    arg_parser.add_argument('-p', '--port',
+                            action='store_true',
+                            default=None)
+    arg_parser.add_argument('-a', '--aut-file',
+                            default=None)
+    arg_parser.add_argument('-s', '--spec-file',
+                            default=None)
+    arg_parser.add_argument('-f', '--fastStart',
+                            action='store_true',
+                            default=False)
     args = arg_parser.parse_args()
 
     show_gui = not args.no_gui
@@ -1337,31 +1328,5 @@ if __name__ == "__main__":
     aut_file = args.aut_file
     spec_file = args.spec_file
     fastStart = args.fastStart
-
-    # try:
-    #     opts, args = getopt.getopt(sys.argv[1:], "hnp:a:s:", ["help", "no-gui", "xmlrpc-listen-port=", "aut-file=", "spec-file=", 'fastStart'])
-    # except getopt.GetoptError:
-    #     ltlmop_logger.exception("Bad arguments")
-    #     usage(sys.argv[0])
-    #     sys.exit(2)
-    #
-    # for opt, arg in opts:
-    #     if opt in ("-h", "--help"):
-    #         usage(sys.argv[0])
-    #         sys.exit()
-    #     elif opt in ("-n", "--no-gui"):
-    #         show_gui = False
-    #     elif opt in ("-p", "--xmlrpc-listen-port"):
-    #         try:
-    #             listen_port = int(arg)
-    #         except ValueError:
-    #             ltlmop_logger.error("Invalid port '{}'".format(arg))
-    #             sys.exit(2)
-    #     elif opt in ("-a", "--aut-file"):
-    #         aut_file = arg
-    #     elif opt in ("-s", "--spec-file"):
-    #         spec_file = arg
-    #     elif opt in ('-f', '--fastStart'):
-    #         fastStart = arg
 
     execute_main(listen_port, spec_file, aut_file, show_gui, fastStart)
