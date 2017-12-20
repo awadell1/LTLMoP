@@ -17,11 +17,10 @@ class AbstractCostSpec(object):
         self.cost_text = cost_text
 
     @classmethod
-    def write_cost_file(self, filename, regionList):
-        """
-        Generates a *.cost file for the cost specifications.
-        :param filename: The full filename for the *.cost file
-        :type filename: str
+    def write_cost_file(self, compiler):
+        """ Generates *.cost file from the cost text supplied by the specification
+        :param compiler: A parser
+        :type compiler: SpecCompiler
         :return: None
         """
         pass

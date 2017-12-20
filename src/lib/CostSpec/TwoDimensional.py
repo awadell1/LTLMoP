@@ -11,9 +11,7 @@ from AbstractSyntaxTree import AbstractSyntaxTree, AtomicRegex, AtomicProp
 class TwoDimensional(AbstractCostSpec):
 
     def write_cost_file(self, compiler):
-        """
-        Generates *.cost file from the cost text supplied by the specification
-        :param filename: The full filename for the *.cost file
+        """ Generates *.cost file from the cost text supplied by the specification
         :param compiler: A parser
         :type compiler: SpecCompiler
         :return: None

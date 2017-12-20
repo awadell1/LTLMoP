@@ -17,9 +17,9 @@ winning_livenesses: False
 use_region_bit_encoding: True
 multi_robot_mode: negotiation
 synthesizer: slugs
-cooperative_gr1: True
+cooperative_gr1: False
 fastslow: False
-optimal: none
+optimal: twodim
 only_realizability: False
 decompose: True
 interactive: False
@@ -45,15 +45,15 @@ Cost: # Transition Weights in structured English
 # The first line must be of the format: c_d c_t pref
 # 	c_d: The delay cost factor
 # 	c_t: The transition cost factor
-# 	pref: A cost preference, where < prefers waiting and > prefers moving
+# 	pref: A cost preference, where > prefers not waiting and < prefers not moving
 
-1 0 >
+1 0 <
 1.0 r1 & next(r2)
 1.0 r4 & next(r2)
 1.0 r2 & next(r1)
 1.0 r2 & next(r4)
-1.0 r2 & next(r3)
-1.0 r3 & next(r2)
+0.0 r2 & next(r3)
+0.0 r3 & next(r2)
 
 GlobalSensors: # Sensors accessible by all robots
 

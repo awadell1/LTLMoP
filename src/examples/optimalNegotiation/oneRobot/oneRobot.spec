@@ -43,7 +43,7 @@ isLine, 1
 Cost: # Transition Weights in structured English
 # The first line must be of the format: c_d c_t pref
 # 	c_d: The delay cost factor
-# 	c_t: The transistion cost factor
+# 	c_t: The transition cost factor
 # 	pref: A cost preference, where > prefers not waiting and < prefers not moving
 
 0 1 >
