@@ -16,6 +16,7 @@ ltlmop_logger = logging.getLogger('ltlmop_logger')
 from copy import deepcopy
 ###################################################
 
+
 class FSAStrategy(strategy.Strategy):
     """
     An automaton object is a collection of state objects along with information about the
@@ -49,9 +50,6 @@ class FSAStrategy(strategy.Strategy):
         with open(filename, "r") as f:
             fsa_description = f.read()
 
-        #fsa_description = re.sub('_l_a_c_v_\d:\d,?', '', fsa_description)
-        #fsa_description = re.sub('_is_infty_cost_(Pre|Post):\d,?', '', fsa_description)
-        #fsa_description = re.sub(',\s*>', '>', fsa_description)
         ###################
         # Read in states: #
         ###################
@@ -82,8 +80,6 @@ class FSAStrategy(strategy.Strategy):
             # defined, so we will leave them as None's.
             # TODO: This weakens error-checking. Maybe make this only apply
             # if specifically asked for when dealing with counter-strategies?
-            #for prop_name in self.states.getPropositions(expand_domains=True):
-            #    new_state.setPropValue(prop_name, None)
 
             # A regex so we can iterate over "PROP = VALUE" terms
             p2 = re.compile(r"(?P<var>\w+):(?P<val>\d)", re.IGNORECASE|re.MULTILINE)

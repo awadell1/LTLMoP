@@ -691,12 +691,12 @@ class ExecutorResynthesisExtensions(object):
                     ltlmop_logger.debug('Resetting violation timeStamp')
                     time.sleep(1)
 
-                    # Clear Internal Output Propositions
+                    # Reset Internal Propositions to false
                     for p in self.current_outputs:
                         if p in self.proj.internal_props:
                             self.current_outputs[p] = False
 
-                    # reinitialize automaton
+                    # Reinitialize automaton
                     spec_file = self.proj.getFilenamePrefix() + ".spec"
                     aut_file = self.proj.getFilenamePrefix() + ".aut"
                     self.initialize(spec_file, aut_file, firstRun=False)
@@ -819,16 +819,6 @@ class ExecutorResynthesisExtensions(object):
                                         self.resumeMotionAndAction()
                                     else:
                                         return
-
-                                    # if ((not self.exchangedSpec[conflictingRobots[0]]) or (not self.sentSpec[conflictingRobots[0]] and self.receivedSpec[conflictingRobots[0]])) and otherRobotViolationTimeStamp < self.violationTimeStamp:
-                                    #     # exchange spec
-                                    #     realizable = self.appendSpecFromEnvRobots()
-                                    #     self.exchangedSpec[conflictingRobots[0]] = True
-                                    # elif self.sentSpec[conflictingRobots[0]] and self.receivedSpec[conflictingRobots[0]]:
-                                    #     pass
-                                    # else:
-                                    #     return
-                                    # -------------------------------------- #
 
                                 elif self.proj.compile_options["multi_robot_mode"] == "patching":
                                     # ************ patching ****************** #

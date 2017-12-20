@@ -3,29 +3,29 @@ import sys
 import random
 import project
 import copy
-
-# logger for ltlmop
 import logging
 ltlmop_logger = logging.getLogger('ltlmop_logger')
 
+
 class ExecutorStrategyExtensions(object):
     """ Extensions to Executor to allow for the strategy structure.
-        This class provides functions to update the outputs and to check for new states in every iteration.
+        This class provides functions to update the outputs and to check for
+        new states in every iteration.
     """
 
     def __init__(self):
         super(ExecutorStrategyExtensions, self).__init__()
 
-        self.last_next_states= []
+        self.last_next_states = []
         self.last_sensor_state = {}
-        self.next_state      = None
-        self.current_region  = None
-        self.next_region     = None
+        self.next_state = None
+        self.current_region = None
+        self.next_region = None
 
     def updateOutputs(self, state=None):
         """
-        Update the values of current outputs in our execution environment to reflect the output
-        proposition values associated with the given state
+        Update the values of current outputs in our execution environment to
+        reflect the output proposition values associated with the given state
         """
 
         if state is None:
@@ -38,11 +38,13 @@ class ExecutorStrategyExtensions(object):
             if key not in self.current_outputs.keys() or output_val != self.current_outputs[key]:
 
                 # The state of this output proposition has changed!
-                self.postEvent("INFO", "Output proposition \"%s\" is now %s!" % (key, str(output_val)))
+                self.postEvent("INFO",
+                               "Output proposition \"%s\" is now %s!" %
+                               (key, str(output_val)))
 
                 # Run any actuator handlers if appropriate
                 if key in self.proj.enabled_actuators:
-                    self.hsub.setActuatorValue({key:output_val})
+                    self.hsub.setActuatorValue({key: output_val})
 
                 self.current_outputs[key] = output_val
 
@@ -61,15 +63,19 @@ class ExecutorStrategyExtensions(object):
 
         # Let's try to transition
         # TODO: set current state so that we don't need to call from_state
-        next_states = self.strategy.findTransitionableStates(sensor_state, from_state= self.strategy.current_state)
+        next_states = self.strategy.findTransitionableStates(
+            sensor_state, from_state=self.strategy.current_state)
 
-        if self.proj.compile_options['neighbour_robot'] and self.proj.compile_options["multi_robot_mode"] == "negotiation":
+        # Check for Envirormental assumption violations
+        if self.proj.compile_options['neighbour_robot'] and\
+           self.proj.compile_options["multi_robot_mode"] == "negotiation":
             self.env_assumption_hold = self.simple_check_envTrans_violation()
 
         # Make sure we have somewhere to go
         if len(next_states) == 0:
             # Well darn!
-            ltlmop_logger.error("Could not find a suitable state to transition to!")
+            ltlmop_logger.error(
+                "Could not find a suitable state to transition to!")
             return
 
         # See if we're beginning a new transition
@@ -80,7 +86,8 @@ class ExecutorStrategyExtensions(object):
             self.last_next_states = next_states
 
             # Only allow self-transitions if that is the only option!
-            if len(next_states) > 1 and self.strategy.current_state in next_states:
+            if len(next_states) > 1 and\
+               self.strategy.current_state in next_states:
                 next_states.remove(self.strategy.current_state)
 
             self.next_state = random.choice(next_states)
@@ -90,7 +97,10 @@ class ExecutorStrategyExtensions(object):
                 self.next_region = None
             
             if self.next_state.goal_id != self.strategy.current_state.goal_id:
-                self.postEvent("INFO", "Currently pursuing goal #{}".format(self.next_state.goal_id))
+                self.postEvent(
+                    "INFO",
+                    "Currently pursuing goal #{}".format(
+                        self.next_state.goal_id))
 
             # See what we, as the system, need to do to get to this new state
             self.transition_contains_motion = self.next_region is not None and (self.next_region != self.current_region)
@@ -117,14 +127,10 @@ class ExecutorStrategyExtensions(object):
             if not self.proj.compile_options['fastslow']:
                 # Run actuators after motion
                 self.updateOutputs(self.next_state)
-            
-            # ------------------------------- #
-            # --- two_robot_negotiation ----- #
-            # ------------------------------- #
+
             if self.proj.compile_options['neighbour_robot']:
                 self.robClient.updateRobotRegion(self.next_region)
-            # ------------------------------- #
-            
+
             self.strategy.current_state = self.next_state
             self.last_next_states = []  # reset
 
