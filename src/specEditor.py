@@ -9,11 +9,26 @@
     allowing for editing, compilation, and execution/simulation
 """
 
-import re, sys, os, subprocess
-import wx, wx.richtext, wx.stc
+import re
+import sys
+import os
+import subprocess
+import wx
+import wx.richtext
+import wx.stc
 import threading
 import time
 import argparse
+from regions import *
+import project
+import strategy
+import mapRenderer
+from specCompiler import SpecCompiler
+from asyncProcesses import AsynchronousProcessThread
+from parseEnglishToLTL import writeSpec
+from copy import deepcopy
+import logging
+import globalConfig
 
 
 # Climb the tree to find out where we are
@@ -25,31 +40,20 @@ while t != "src":
         print "I have no idea where I am; this is ridiculous"
         sys.exit(1)
 
-sys.path.append(os.path.join(p,"src","lib"))
-sys.path.append(os.path.join(p,"lib","cores"))
+sys.path.append(os.path.join(p, "src", "lib"))
+sys.path.append(os.path.join(p, "lib", "cores"))
 
 # Flag to quickly start the simulation
 fastStart = False
 
-from regions import *
-import project
-import strategy
-import mapRenderer
-from specCompiler import SpecCompiler
-from asyncProcesses import AsynchronousProcessThread
-from parseEnglishToLTL import writeSpec
 
-from copy import deepcopy
-
-import logging
-import globalConfig
 ltlmop_logger = logging.getLogger('ltlmop_logger')
 
-ltlmop_logger.log(1,'ltlmop_logger: Level 1. Put number 1 in global.cfg')
-ltlmop_logger.log(2,'ltlmop_logger: Level 2. Put number 2 in global.cfg')
-ltlmop_logger.log(4,'ltlmop_logger: Level 4. Put number 4 in global.cfg')
-ltlmop_logger.log(6,'ltlmop_logger: Level 6. Put number 6 in global.cfg')
-ltlmop_logger.log(8,'ltlmop_logger: Level 8. Put number 8 in global.cfg')
+ltlmop_logger.log(1, 'ltlmop_logger: Level 1. Put number 1 in global.cfg')
+ltlmop_logger.log(2, 'ltlmop_logger: Level 2. Put number 2 in global.cfg')
+ltlmop_logger.log(4, 'ltlmop_logger: Level 4. Put number 4 in global.cfg')
+ltlmop_logger.log(6, 'ltlmop_logger: Level 6. Put number 6 in global.cfg')
+ltlmop_logger.log(8, 'ltlmop_logger: Level 8. Put number 8 in global.cfg')
 ltlmop_logger.debug('ltlmop_logger: DEBUG. Put str DEBUG in global.cfg')
 ltlmop_logger.info('ltlmop_logger: INFO. Put str INFO in global.cfg')
 ltlmop_logger.warning('ltlmop_logger: WARNING. Put str WARN in global.cfg')
@@ -59,6 +63,7 @@ ltlmop_logger.error('ltlmop_logger: ERROR. Put str ERROR in global.cfg')
 #         DO NOT EDIT GUI CODE BY HAND.  USE WXGLADE.         #
 #   The .wxg file is located in the etc/wxglade/ directory.   #
 ###############################################################
+
 
 class WxAsynchronousProcessThread(AsynchronousProcessThread):
     """ Make sure callbacks from AsynchronousProcessThreads are
@@ -75,6 +80,7 @@ class WxAsynchronousProcessThread(AsynchronousProcessThread):
                 wx.CallAfter(logFunction, *args, **kwds)
 
         super(WxAsynchronousProcessThread, self).__init__(cmd, wxSafeCallback, wxSafeLogger)
+
 
 class AnalysisResultsDialog(wx.Dialog):
     def __init__(self, parent, *args, **kwds):
@@ -1084,6 +1090,12 @@ class SpecEditorFrame(wx.Frame):
         elif self.proj.compile_options["multi_robot_mode"] == "d-patching":
             self.frame_1_menubar.Check(MENU_MULTIROBOTMODE_DECENTRALIZED_PATCHING, True)
 
+        # Update Optimal Synthesis Options
+        if self.proj.compile_options['optimal'] == 'twodim':
+            self.frame_1_menubar.Check(MENU_OPTIMAL, True)
+        else:
+            self.frame_1_menubar.Check(MENU_OPTIMAL, False)
+
     def doClose(self, event): # wxGlade: SpecEditorFrame.<event_handler>
         """
         Respond to the "Close" menu command.
@@ -1153,21 +1165,16 @@ class SpecEditorFrame(wx.Frame):
 
         #event.Skip()
 
-    def onMenuCompile(self, event, analyze = False): # wxGlade: SpecEditorFrame.<event_handler>
-        """
-        if analyze = True, do not modify spec
+    def onMenuCompile(self, event, analyze=False): # wxGlade: SpecEditorFrame.<event_handler>
+        """ Event Handler for compiling the specification
+
+            :param analyze if true do not modify the *.spec file
         """
         # Clear the error markers
         self.text_ctrl_spec.MarkerDeleteAll(MARKER_INIT)
         self.text_ctrl_spec.MarkerDeleteAll(MARKER_SAFE)
         self.text_ctrl_spec.MarkerDeleteAll(MARKER_LIVE)
         self.text_ctrl_spec.MarkerDeleteAll(MARKER_PARSEERROR)
-
-        # Let's make sure we have everything!
-        #if self.proj.rfi is None:
-        #    wx.MessageBox("Please define regions before compiling.", "Error",
-        #                style = wx.OK | wx.ICON_ERROR)
-        #    return
 
         if self.proj.specText.strip() == "":
             wx.MessageBox("Please write a specification before compiling.", "Error",
@@ -1186,37 +1193,33 @@ class SpecEditorFrame(wx.Frame):
             return
 
 
-        # TODO: we could just pass the proj object
+        # Save current state to the *.spec file
         self.proj.writeSpecFile()
         self.dirty = False
+
+        # Create an SpecCompiler instance from the current project
         compiler = SpecCompiler().loadProject(self.proj)
 
         # Clear the log so we can start fresh grocer
         self.text_ctrl_log.Clear()
 
         # Redirect all output to the log
-        redir = RedirectText(self,self.text_ctrl_log)
+        RedirectText.set(self, self.text_ctrl_log)
 
-        sys.stdout = redir
-        sys.stderr = redir
-
+        # Decompose workspace
         self.appendLog("Decomposing map into convex regions...\n", "BLUE")
-
-        # Decompose Regions: Note project is passed by reference to the compiler
         compiler._decompose()
-        self.decomposedRFI = compiler.parser.proj.rfi
 
         # Update workspace decomposition listbox
         if self.proj.regionMapping is not None:
             self.list_box_locphrases.Set(self.proj.regionMapping.keys())
             self.list_box_locphrases.Select(0)
 
+        # Construct *.ltl file from specification
         self.appendLog("Creating LTL...\n", "BLUE")
-        ############# ENV ASSUMPTION MINING ###################
         self.spec, self.tracebackTree, self.response = compiler._writeLTLFile()
-        #########################################################
+
         # Add any auto-generated propositions to the list
-        # TODO: what about removing old ones?
         for p in compiler.proj.internal_props:
             if p not in self.list_box_customs.GetItems():
                 self.list_box_customs.AppendAndEnsureVisible(str(p))
@@ -1224,38 +1227,36 @@ class SpecEditorFrame(wx.Frame):
         # Add any auto-generated sensor propositions to the list
         for s in compiler.proj.enabled_sensors:
             if s not in self.list_box_sensors.GetItems():
-                self.list_box_sensors.Insert(s,0)
+                self.list_box_sensors.Insert(s, 0)
                 self.list_box_sensors.Check(0)
 
+        # Respond to syntax errors, if any
         if self.tracebackTree is None:
-            sys.stdout = sys.__stdout__
-            sys.stderr = sys.__stderr__
+            RedirectText.reset()
             self.appendLog("ERROR: Aborting compilation due to syntax error.\n", "RED")
             return
 
         self.appendLog("Creating SMV file...\n", "BLUE")
-
         compiler._writeSMVFile()
 
         # Load in LTL file to the LTL tab
-        if os.path.exists(self.proj.getFilenamePrefix()+".ltl"):
-            f = open(self.proj.getFilenamePrefix()+".ltl","r")
+        if os.path.exists(self.proj.getFilenamePrefix() + ".ltl"):
+            f = open(self.proj.getFilenamePrefix() + ".ltl", "r")
             ltl = "".join(f.readlines())
             f.close()
             self.text_ctrl_LTL.SetValue(ltl)
 
-
         self.appendLog("Creating automaton...\n", "BLUE")
-
-        # Disable console redirection
-        sys.stdout = sys.__stdout__
-        sys.stderr = sys.__stderr__
+        RedirectText.reset()
 
         # Put up a busy dialog
-        busy_dialog = wx.ProgressDialog("Synthesizing...", "Please wait, synthesizing a strategy...",
-                                        style=wx.PD_APP_MODAL | wx.PD_CAN_ABORT | wx.PD_ELAPSED_TIME)
+        busy_dialog = wx.ProgressDialog(
+                "Synthesizing...",
+                "Please wait, synthesizing a strategy...",
+                style=wx.PD_APP_MODAL | wx.PD_CAN_ABORT | wx.PD_ELAPSED_TIME)
 
         self.badInit = ""
+
         def onLog(text):
             # Check for bad initial conditions list in unsynth case
             if "For example" in text:
@@ -1264,7 +1265,7 @@ class SpecEditorFrame(wx.Frame):
             # Display output realtime in the log
             wx.CallAfter(self.appendLog, "\t"+text)
 
-        # Write Cost File
+        # Construct *.cost file from cost specification if required
         compiler.proj.cost_spec.write_cost_file(compiler)
 
         # Kick off the synthesis
@@ -1272,13 +1273,14 @@ class SpecEditorFrame(wx.Frame):
             compiler._synthesizeAsync(onLog)
         except RuntimeError as e:
             wx.MessageBox(e.message, "Error",
-                        style = wx.OK | wx.ICON_ERROR)
+                          style=wx.OK | wx.ICON_ERROR)
             busy_dialog.Destroy()
             return
 
         keep_going = True
         while not compiler.synthesis_complete.isSet():
-            # Keep the progress bar spinning and check if the Abort button has been pressed
+            # Keep the progress bar spinning and check if the Abort button has
+            # been pressed
             keep_going = busy_dialog.UpdatePulse()[0]
 
             if not keep_going:
@@ -1286,8 +1288,8 @@ class SpecEditorFrame(wx.Frame):
                 break
 
             # Let wx and the OS have some time
-            # We are updating here instead of in the log callback because log output
-            # may be very infrequent
+            # We are updating here instead of in the log callback because log
+            # output may be very infrequent
             wx.GetApp().Yield(True)
             time.sleep(0.1)
 
@@ -1311,19 +1313,16 @@ class SpecEditorFrame(wx.Frame):
                 self.appendLog("Automaton successfully synthesized for instantaneous actions.\n", "GREEN")
             else:
                 self.appendLog("ERROR: Specification was unsynthesizable (unrealizable/unsatisfiable) for instantaneous actions.\n", "RED")
-        
-            ############# ENV Assumption Learning ###################
             return
+
+            ############# ENV Assumption Learning ###################
             if not compiler.realizable and not analyze:
                 self.appendLog("\tNow we are changing the environment safety assumptions from [](TRUE) to [](FALSE).\n","BLUE")
-                #path_ltl =  os.path.join(self.proj.project_root,self.proj.getFilenamePrefix()+".ltl")  # path of ltl file to be passed to the function 
-                #LTLViolationCheck = LTLcheck.LTL_Check(path_ltl,compiler.LTL2SpecLineNumber,spec)
-                #LTLViolationCheck.modify_LTL_file()
                 ltl_filename = self.proj.getFilenamePrefix() + ".ltl"
                 self.spec['EnvTrans'] = '\t[](FALSE) & \n'
                  
-                # putting all the LTL fragments together (see specCompiler.py to view details of these fragments)
-                #LTLspec_env = "( " + self.spec["EnvInit"] + ")&\n" + self.spec["EnvTrans"] + self.spec["EnvGoals"]
+                # putting all the LTL fragments together
+                # See specCompiler.py to view details of these fragments
                 LTLspec_env = self.spec["EnvTrans"] + self.spec["EnvGoals"]
                 LTLspec_sys = "( " + self.spec["SysInit"] + ")&\n" + self.spec["SysTrans"] + self.spec["SysGoals"]
                 
@@ -1337,72 +1336,73 @@ class SpecEditorFrame(wx.Frame):
                 realizable, realizableFS, output = compiler._synthesize()
             
                 if realizable:
-                    self.appendLog("\tAutomaton successfully synthesized for instantaneous actions.\n", "GREEN")
+                    self.appendLog("\tAutomaton successfully synthesized for" +
+                                   " instantaneous actions.\n",
+                                   "GREEN")
                     
                     # Load in LTL file to the LTL tab
                     if os.path.exists(self.proj.getFilenamePrefix()+".ltl"):
-                        f = open(self.proj.getFilenamePrefix()+".ltl","r")
+                        f = open(self.proj.getFilenamePrefix()+".ltl", "r")
                         ltl = "".join(f.readlines())
                         f.close()
                         self.text_ctrl_LTL.SetValue(ltl)
                 else:
-                    self.appendLog("\tERROR: Specification was unsynthesizable (unrealizable/unsatisfiable) for instantaneous actions.\n", "RED")
+                    self.appendLog("\tERROR: Specification was " +
+                                   "unsynthesizable (unrealizable/" +
+                                   "unsatisfiable) for instantaneous " +
+                                   "actions.\n",
+                                   "RED")
             #########################################################
-        
-        # Check for trivial aut
+
+        # Check for trivial automaton
         if compiler.realizable or compiler.realizableFS:
             if not compiler._autIsNonTrivial():
-                self.appendLog("\tWARNING: Automaton is trivial.  Further analysis is recommended.\n", "RED")
+                self.appendLog("\tWARNING: Automaton is trivial. " +
+                               "Further analysis is recommended.\n",
+                               "RED")
 
         return compiler, self.badInit
 
     def appendLog(self, text, color="BLACK"):
         self.text_ctrl_log.BeginTextColour(color)
-        #self.text_ctrl_log.BeginBold()
         self.text_ctrl_log.WriteText(text)
-        #self.text_ctrl_log.EndBold()
         self.text_ctrl_log.EndTextColour()
         self.text_ctrl_log.ShowPosition(self.text_ctrl_log.GetLastPosition())
-        #wx.GetApp().Yield(True) # Ensure update
 
     def onMenuSimulate(self, event): # wxGlade: SpecEditorFrame.<event_handler>
         """ Run the simulation with current experiment configuration. """
 
-        #if not self.proj.compile_options["use_region_bit_encoding"]:
-        #    wx.MessageBox("Execution requires bit-vector region encoding.\nPlease enable it and recompile.", "Error",
-        #                style = wx.OK | wx.ICON_ERROR)
-        #    return
-
-        # TODO: or check mtime
         if self.dirty:
-            response = wx.MessageBox("Specification may have changed since last compile.\nContinue anyways, without recompiling?",
-                                    "Warning", wx.YES_NO | wx.CANCEL, self)
+            response = wx.MessageBox(
+                "Specification may have changed since last compile.\n" +
+                "Continue anyways, without recompiling?",
+                "Warning", wx.YES_NO | wx.CANCEL, self)
 
             if response != wx.YES:
                 return
 
-        if not os.path.isfile(self.proj.getFilenamePrefix()+".aut") and not os.path.isfile(self.proj.getFilenamePrefix()+".bdd")\
-            and not self.proj.compile_options['interactive']:
-            # TODO: Deal with case where aut file exists but is lame
-            wx.MessageBox("Cannot find automaton for simulation.  Please make sure compilation completed successfully.", "Error",
-                        style = wx.OK | wx.ICON_ERROR)
+        if not os.path.isfile(self.proj.getFilenamePrefix() + ".aut") and\
+           not os.path.isfile(self.proj.getFilenamePrefix() + ".bdd") and\
+           not self.proj.compile_options['interactive']:
+
+            wx.MessageBox(
+                "Cannot find automaton for simulation. " +
+                "Please make sure compilation completed successfully.",
+                "Error",
+                style=wx.OK | wx.ICON_ERROR)
             return
 
-        redir = RedirectText(self,self.text_ctrl_log)
-
-        sys.stdout = redir
-        sys.stderr = redir
-
+        # Construct Command Line arguments for execute.py
         cmd = [sys.executable, "-u", "-m", "lib.execute",
                "-a", self.proj.getStrategyFilename(),
                "-s", self.proj.getFilenamePrefix() + ".spec"]
         if fastStart:
             cmd.append('-f')
+
+        # Simulate Automaton
+        RedirectText.set(self, self.text_ctrl_log)
         subprocess.Popen(cmd)
-
-        sys.stdout = sys.__stdout__
-        sys.stderr = sys.__stderr__
-
+        RedirectText.reset()
 
     def onClickEditRegions(self, event): # wxGlade: SpecEditorFrame.<event_handler>
         # Provide visual feedback and make sure multiple copies of RegionEditor
@@ -1603,9 +1603,7 @@ class SpecEditorFrame(wx.Frame):
         self.appendLog("Running analysis...\n","BLUE")
 
         # Redirect all output to the log
-        redir = RedirectText(self, self.text_ctrl_log)
-        sys.stdout = redir
-        sys.stderr = redir
+        RedirectText.set(self, self.text_ctrl_log)
 
         try:
             (realizable, self.unsat, nonTrivial, self.to_highlight, output) = self.compiler._analyze()
@@ -1614,10 +1612,9 @@ class SpecEditorFrame(wx.Frame):
                         style = wx.OK | wx.ICON_ERROR)
             return
         finally:
-            sys.stdout = sys.__stdout__
-            sys.stderr = sys.__stderr__
+            RedirectText.reset()
 
-        # Remove lines about garbage collection from the output and remove extraenous lines
+        # Remove lines about garbage collection from the output and remove extraneous lines
         output_lines = [line for line in output.split('\n') if line.strip() and
                         "Garbage collection" not in line and
                         "Resizing node table" not in line]
@@ -1928,6 +1925,7 @@ class SpecEditorFrame(wx.Frame):
 
 # end of class SpecEditorFrame
 
+
 class RedirectText:
     """
     A class that lets the output of a stream be directed into a text box.
@@ -1935,11 +1933,11 @@ class RedirectText:
     http://mail.python.org/pipermail/python-list/2007-June/445795.html
     """
 
-    def __init__(self,parent,aWxTextCtrl):
-        self.out=aWxTextCtrl
-        self.parent=parent
+    def __init__(self, parent, aWxTextCtrl):
+        self.out = aWxTextCtrl
+        self.parent = parent
 
-    def write(self,string):
+    def write(self, string):
         self.out.BeginTextColour("BLACK")
         self.out.WriteText("\t"+string)
         self.out.EndTextColour()
@@ -1947,10 +1945,24 @@ class RedirectText:
 
         m = re.search(r"Could not parse the sentence in line (\d+)", string)
         if m:
-            self.parent.text_ctrl_spec.MarkerAdd(int(m.group(1))-1,MARKER_PARSEERROR)
+            self.parent.text_ctrl_spec.MarkerAdd(int(m.group(1))-1,
+                                                 MARKER_PARSEERROR)
+
+    @staticmethod
+    def set(parent, aWxTextCtrl):
+        redir = RedirectText(parent, aWxTextCtrl)
+        sys.stdout = redir
+        sys.stderr = redir
+
+    @staticmethod
+    def reset():
+        sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
 
 
 if __name__ == "__main__":
+    """ Start LTLMop GUI and process command line arguments """
+
     SpecEditor = wx.PySimpleApp(0)
     wx.InitAllImageHandlers()
     frame_1 = SpecEditorFrame(None, -1, "")
@@ -1958,20 +1970,41 @@ if __name__ == "__main__":
     frame_1.Show()
 
     # Define Command line Arguments
-    arg_parser = argparse.ArgumentParser(description='Tool for synthesizing provably correct controllers')
-    arg_parser.add_argument('-c', '--compile', action='store_true', default=False)
-    arg_parser.add_argument('-s', '--simulate', action='store_true', default=False)
-    arg_parser.add_argument('-f', '--fastStart', action='store_true', default=False)
-    arg_parser.add_argument('filename', nargs='?', default=None)
-    args = arg_parser.parse_args()
+    arg_parser = argparse.ArgumentParser(
+        description='Tool for synthesizing provably correct controllers')
 
-    # Parse Arguments
+    # Flag to immediatly compile the specification
+    arg_parser.add_argument('-c', '--compile',
+                            action='store_true',
+                            default=False)
+
+    # Flag to simulate the specification once compiled
+    arg_parser.add_argument('-s', '--simulate',
+                            action='store_true',
+                            default=False)
+
+    # Flag to automatically start the simulation
+    arg_parser.add_argument('-f', '--fastStart',
+                            action='store_true',
+                            default=False)
+
+    # The filename of the specification
+    arg_parser.add_argument('filename',
+                            nargs='?',
+                            default=None)
+
+    # Parse input arguments
+    args = arg_parser.parse_args()
     if args.filename is not None:
         frame_1.openFile(args.filename)
-    fastStart = args.fastStart
-    if args.compile:
-        frame_1.onMenuCompile(None)
-    if args.simulate:
-        frame_1.onMenuSimulate(None)
+        if args.compile:
+            # Compile loaded specification
+            frame_1.onMenuCompile(None)
 
+            if args.simulate:
+                # Update fastStart flag and simulate
+                fastStart = args.fastStart
+                frame_1.onMenuSimulate(None)
+
+    # Start GUI Main Loop
     SpecEditor.MainLoop()
