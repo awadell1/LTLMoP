@@ -3,11 +3,12 @@ cwd=$(pwd)
 
 # Install Basic Requirements
 echo Root access requested to install dependancies
-sudo apt-get install default-jre
-sudo apt-get install default-jdk
-sudo apt-get install python-numpy
-sudo apt-get install python-scipy
-sudo apt-get install python-wxtools
+sudo apt-get install default-jre -y
+sudo apt-get install default-jdk -y
+sudo apt-get install python-numpy -y
+sudo apt-get install python-scipy -y
+sudo apt-get install python-wxtools -y
+sudo apt-get install libboost-dev -y
 pip install Polygon2
 
 # Run LTLMop setup file
